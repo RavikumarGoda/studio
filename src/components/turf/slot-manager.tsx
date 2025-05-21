@@ -2,7 +2,7 @@
 // src/components/turf/slot-manager.tsx
 "use client";
 
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, ChangeEvent, KeyboardEvent } from 'react'; // Added KeyboardEvent
 import type { Slot, Turf } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -207,7 +207,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
       case 'maintenance':
         return 'bg-yellow-100 border-yellow-500 hover:bg-yellow-200 text-yellow-700';
       case 'booked':
-        return 'bg-red-100 border-red-500 text-red-700 cursor-not-allowed opacity-75';
+        return 'bg-red-100 border-red-500 text-red-700 opacity-75'; // Removed cursor-not-allowed as div won't have it by default
       default:
         return 'bg-gray-100 border-gray-400';
     }
@@ -224,6 +224,13 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
 
   // Counter for new slot IDs to ensure uniqueness before saving
   let mockSlotIdCounter = 1;
+
+  const handleSlotCardKeyDown = (event: KeyboardEvent<HTMLDivElement>, slotId: string, currentStatus: Slot['status']) => {
+    if (currentStatus !== 'booked' && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      toggleSlotStatus(slotId);
+    }
+  };
 
 
   return (
@@ -276,12 +283,15 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
           {slotsForSelectedDate.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {slotsForSelectedDate.map(slot => (
-                <button
+                <div // Changed from button to div
                   key={slot.id}
+                  role="button" // Accessibility: informs assistive tech it's a button
+                  tabIndex={slot.status !== 'booked' ? 0 : -1} // Accessibility: make it focusable if not booked
                   onClick={() => slot.status !== 'booked' && toggleSlotStatus(slot.id)}
-                  disabled={slot.status === 'booked'}
+                  onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => handleSlotCardKeyDown(e, slot.id, slot.status)}
+                  aria-disabled={slot.status === 'booked'}
                   className={cn(
-                    "p-3 border rounded-lg shadow-sm transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring relative", // Added relative for positioning context
+                    "relative p-3 border rounded-lg shadow-sm transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring", 
                     getSlotCardClasses(slot.status),
                     slot.status !== 'booked' ? 'cursor-pointer' : 'cursor-not-allowed'
                   )}
@@ -297,7 +307,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
                    <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => { e.stopPropagation(); setSlotToDelete(slot);}} // Stop propagation to prevent card click
+                        onClick={(e) => { e.stopPropagation(); setSlotToDelete(slot);}} 
                         disabled={slot.status === 'booked'}
                         className={cn(
                             "absolute top-1 right-1 h-6 w-6",
@@ -307,7 +317,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                </button>
+                </div>
               ))}
             </div>
           ) : (
