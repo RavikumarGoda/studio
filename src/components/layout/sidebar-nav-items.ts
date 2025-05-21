@@ -46,12 +46,12 @@ export const navItems: NavItem[] = [
     icon: ShieldCheck, // Or a turf icon
     roles: ['owner'],
   },
-  {
-    title: 'Add New Turf',
-    href: '/owner/turfs/new',
-    icon: PlusCircle,
-    roles: ['owner'],
-  },
+  // {
+  //   title: 'Add New Turf',
+  //   href: '/owner/turfs/new',
+  //   icon: PlusCircle,
+  //   roles: ['owner'],
+  // },
   {
     title: 'Bookings',
     href: '/owner/bookings',
