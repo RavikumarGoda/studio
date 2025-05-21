@@ -8,7 +8,7 @@ import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { ArrowRight, LogIn, UserPlus } from "lucide-react";
+import { ArrowRight, LogIn, UserPlus, Search, CalendarDays, ShieldCheck } from "lucide-react";
 
 export default function LandingPage() {
   const { user, loading } = useAuth();
