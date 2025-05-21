@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { MapPin, IndianRupee, Star, Clock, CalendarDays, ChevronLeft, Loader2 as PageLoaderIcon } from 'lucide-react'; // Renamed Loader2 to avoid conflict
+import { MapPin, IndianRupee, Star, Clock, CalendarDays, ChevronLeft, Loader2 as PageLoaderIcon, UserCheck, MessageSquareWarning, LogIn } from 'lucide-react'; // Renamed Loader2 to avoid conflict, Added UserCheck, MessageSquareWarning, LogIn
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -39,6 +39,7 @@ export default function TurfDetailPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasUserReviewed, setHasUserReviewed] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -49,10 +50,18 @@ export default function TurfDetailPage() {
         if (currentTurf) {
           setTurf(currentTurf);
           setSlots(fetchSlotsForTurf(turfId));
-          setReviews(fetchReviewsForTurf(turfId));
+          const fetchedReviews = fetchReviewsForTurf(turfId);
+          setReviews(fetchedReviews);
           if (currentTurf.images && currentTurf.images.length > 0) {
             setSelectedImage(currentTurf.images[0]);
           }
+          // Check if current user has reviewed
+          if (user && fetchedReviews.some(review => review.userId === user.uid)) {
+            setHasUserReviewed(true);
+          } else {
+            setHasUserReviewed(false);
+          }
+
         } else {
           toast({ title: "Error", description: "Turf not found.", variant: "destructive" });
           // Consider redirecting: router.push('/player/turfs');
@@ -64,7 +73,7 @@ export default function TurfDetailPage() {
         setIsLoading(false);
       }
     }
-  }, [turfId, toast]);
+  }, [turfId, toast, user]); // Added user to dependency array
 
   const handleBooking = (slot: Slot) => {
     if (!user) {
@@ -106,11 +115,17 @@ export default function TurfDetailPage() {
         toast({ title: "Error", description: "Cannot submit review.", variant: "destructive" });
         return;
     }
+    if (hasUserReviewed) {
+        toast({ title: "Already Reviewed", description: "You have already submitted a review for this turf.", variant: "default" });
+        return;
+    }
     try {
         const reviewPayload = { userId: user.uid, userName: user.name, rating, comment };
         addReviewToDB(turf.id, reviewPayload);
         // Refetch reviews and turf data to update average rating
-        setReviews(fetchReviewsForTurf(turf.id));
+        const updatedReviews = fetchReviewsForTurf(turf.id);
+        setReviews(updatedReviews);
+        setHasUserReviewed(true); // Set that user has now reviewed
         const updatedTurf = fetchTurfById(turf.id);
         if(updatedTurf) setTurf(updatedTurf);
 
@@ -301,10 +316,36 @@ export default function TurfDetailPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-2xl">Leave a Review</CardTitle>
-              <CardDescription>Share your experience with other players.</CardDescription>
+              {!user && (
+                <CardDescription>You need to be logged in to leave a review.</CardDescription>
+              )}
+              {user && hasUserReviewed && (
+                <CardDescription>You&apos;ve already shared your thoughts on this turf!</CardDescription>
+              )}
+              {user && !hasUserReviewed && (
+                <CardDescription>Share your experience with other players.</CardDescription>
+              )}
             </CardHeader>
             <CardContent>
-              <ReviewForm turfId={turf.id} onSubmitReview={handleReviewSubmitted} />
+              {!user ? (
+                <div className="text-center py-4">
+                    <MessageSquareWarning className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground mb-4">Please log in to share your experience.</p>
+                    <Link href="/login">
+                        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                            <LogIn className="mr-2 h-4 w-4" /> Login to Review
+                        </Button>
+                    </Link>
+                </div>
+              ) : hasUserReviewed ? (
+                 <div className="text-center py-4">
+                    <UserCheck className="h-10 w-10 mx-auto text-primary mb-3" />
+                    <p className="text-foreground">Thanks for your feedback!</p>
+                    <p className="text-sm text-muted-foreground">You have already reviewed this turf.</p>
+                </div>
+              ) : (
+                <ReviewForm turfId={turf.id} onSubmitReview={handleReviewSubmitted} />
+              )}
             </CardContent>
           </Card>
         </div>
@@ -312,3 +353,4 @@ export default function TurfDetailPage() {
     </div>
   );
 }
+
