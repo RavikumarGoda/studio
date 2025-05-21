@@ -14,21 +14,20 @@ export interface Turf {
   ownerId: string;
   name: string;
   location: string; // Could be more complex, e.g., GeoPoint or address object
-  ownerPhoneNumber?: string; // Added owner phone number
+  ownerPhoneNumber?: string;
   pricePerHour: number;
   images: string[]; // URLs
   amenities: string[]; // e.g., "parking", "restroom", "floodlights"
   description: string;
   isVisible: boolean;
   createdAt: Timestamp | Date;
-  // Optional: for aggregated data
   averageRating?: number;
   reviewCount?: number;
 }
 
 export interface Slot {
   id: string;
-  turfId: string; // For client-side reference if needed outside turf subcollection
+  turfId: string; 
   date: string; // "YYYY-MM-DD"
   timeRange: string; // "HH:MM AM/PM - HH:MM AM/PM"
   status: "available" | "booked" | "maintenance";
@@ -36,26 +35,30 @@ export interface Slot {
   createdAt: Timestamp | Date;
 }
 
+export interface BookedSlotDetail {
+  slotId: string;
+  timeRange: string;
+}
+
 export interface Booking {
   id: string;
   turfId: string;
   playerId: string;
-  slotId: string;
-  turfName?: string; // Denormalized for easier display
-  turfLocation?: string; // Denormalized
-  timeRange: string;
-  bookingDate: string; // "YYYY-MM-DD"
+  turfName?: string; 
+  turfLocation?: string; 
+  bookingDate: string; // "YYYY-MM-DD" - The single date for all slots in this booking
+  bookedSlotDetails: BookedSlotDetail[]; // Details of all slots in this booking
   status: "pending" | "approved" | "cancelled" | "completed";
   paymentStatus: "paid" | "unpaid";
   createdAt: Timestamp | Date;
-  totalAmount?: number;
+  totalAmount: number; // Total for all slots in this booking
 }
 
 export interface Review {
   id: string;
-  turfId: string; // For client-side reference
+  turfId: string; 
   userId: string;
-  userName?: string; // Denormalized for easier display
+  userName?: string; 
   rating: number; // 1-5
   comment: string;
   createdAt: Timestamp | Date;

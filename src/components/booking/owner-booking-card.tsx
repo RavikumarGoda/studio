@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Booking } from "@/types";
-import { CalendarDays, Clock, User as UserIcon, Tag, IndianRupee, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { CalendarDays, Clock, User as UserIcon, Tag, IndianRupee, CheckCircle, XCircle, AlertTriangle, Layers } from "lucide-react";
 import { format } from 'date-fns';
 import {
   AlertDialog,
@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { getMockPlayerName } from "@/lib/mock-db"; // Import new mock player name getter
+import { getMockPlayerName } from "@/lib/mock-db"; 
 
 interface OwnerBookingCardProps {
   booking: Booking;
@@ -44,6 +44,20 @@ export function OwnerBookingCard({ booking, onApprove, onReject, onCancelByOwner
   const getPaymentStatusVariant = (status: Booking['paymentStatus']): "default" | "secondary" | "destructive" | "outline" => {
     return status === "paid" ? "default" : "destructive";
   };
+
+  // Helper to convert time string to minutes for sorting
+  function timeStringToMinutes(timeStr: string): number {
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    if (modifier && modifier.toUpperCase() === 'PM' && hours !== 12) hours += 12;
+    if (modifier && modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+  }
+
+  const sortedSlotDetails = [...booking.bookedSlotDetails].sort((a, b) => 
+    timeStringToMinutes(a.timeRange.split(' - ')[0]) - timeStringToMinutes(b.timeRange.split(' - ')[0])
+  );
+
 
   return (
     <Card className="shadow-md hover:shadow-lg transition-shadow">
@@ -74,23 +88,29 @@ export function OwnerBookingCard({ booking, onApprove, onReject, onCancelByOwner
           <span className="font-medium">Date:</span>
           <span className="ml-2">{format(new Date(booking.bookingDate), "eee, MMM d, yyyy")}</span>
         </div>
-        <div className="flex items-center">
-          <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-          <span className="font-medium">Time:</span>
-          <span className="ml-2">{booking.timeRange}</span>
+        
+        <div className="flex items-start">
+          <Clock className="h-4 w-4 mr-2 mt-0.5 text-muted-foreground flex-shrink-0" />
+          <span className="font-medium mr-2">Slots ({sortedSlotDetails.length}):</span>
+          <div className="flex flex-wrap gap-1">
+            {sortedSlotDetails.map(detail => (
+                <Badge variant="outline" key={detail.slotId} className="text-xs px-1.5 py-0.5 font-normal">
+                    {detail.timeRange}
+                </Badge>
+            ))}
+          </div>
         </div>
-        {booking.totalAmount && (
-            <div className="flex items-center">
-                <IndianRupee className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span className="font-medium">Amount:</span>
-                <span className="ml-2">₹{booking.totalAmount.toLocaleString()}</span>
-            </div>
-        )}
+
         <div className="flex items-center">
+            <IndianRupee className="h-4 w-4 mr-2 text-muted-foreground" />
+            <span className="font-medium">Total Amount:</span>
+            <span className="ml-2">₹{booking.totalAmount.toLocaleString()}</span>
+        </div>
+        {/* <div className="flex items-center">
           <Tag className="h-4 w-4 mr-2 text-muted-foreground" />
-          <span className="font-medium">Slot ID:</span>
-          <span className="ml-2 text-xs">{booking.slotId}</span>
-        </div>
+          <span className="font-medium">Slot IDs:</span>
+          <span className="ml-2 text-xs truncate">{booking.bookedSlotDetails.map(d => d.slotId).join(', ')}</span>
+        </div> */}
       </CardContent>
       <CardFooter className="flex justify-end gap-2 pt-4 border-t">
         {booking.status === 'pending' && onApprove && onReject && (
@@ -105,7 +125,7 @@ export function OwnerBookingCard({ booking, onApprove, onReject, onCancelByOwner
                     <AlertDialogHeader>
                     <AlertDialogTitle>Reject Booking?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Are you sure you want to reject this booking? This action cannot be undone.
+                        Are you sure you want to reject this booking? This action cannot be undone. All {booking.bookedSlotDetails.length} associated slots will be affected.
                     </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -132,7 +152,7 @@ export function OwnerBookingCard({ booking, onApprove, onReject, onCancelByOwner
                     <AlertDialogHeader>
                     <AlertDialogTitle>Cancel Approved Booking?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Are you sure you want to cancel this approved booking? The player will be notified. Consider providing a reason.
+                        Are you sure you want to cancel this approved booking? The player will be notified. All {booking.bookedSlotDetails.length} associated slots will be made available.
                     </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

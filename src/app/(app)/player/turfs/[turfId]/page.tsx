@@ -66,10 +66,10 @@ function generateDefaultSlotsForPlayerView(date: string, turfId: string): Slot[]
             date: date,
             timeRange: timeRange,
             status: 'available',
-            createdAt: new Date(), // Not critical for temp UI slots
+            createdAt: new Date(), 
         });
     }
-    return defaults; // Already sorted by generation logic
+    return defaults; 
 }
 
 
@@ -78,7 +78,7 @@ export default function TurfDetailPage() {
   const [resolvedTurfId, setResolvedTurfId] = useState<string | null>(null);
   const { user } = useAuth();
   const [turf, setTurf] = useState<Turf | null>(null);
-  const [allSlots, setAllSlots] = useState<Slot[]>([]); // All slots for the turf from DB
+  const [allSlots, setAllSlots] = useState<Slot[]>([]); 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -104,7 +104,7 @@ export default function TurfDetailPage() {
         const currentTurf = fetchTurfById(resolvedTurfId);
         if (currentTurf) {
           setTurf(currentTurf);
-          const fetchedSlots = fetchSlotsForTurf(resolvedTurfId); // Already sorted by mock-db or should be
+          const fetchedSlots = fetchSlotsForTurf(resolvedTurfId); 
           setAllSlots(fetchedSlots);
           
           const fetchedReviews = fetchReviewsForTurf(resolvedTurfId);
@@ -130,7 +130,6 @@ export default function TurfDetailPage() {
     }
   }, [resolvedTurfId, toast, user]);
 
-  // Effect to filter/generate slots when selectedCalendarDate or allSlots (from DB) changes
   useEffect(() => {
     if (selectedCalendarDate && resolvedTurfId) {
       const dateStr = format(selectedCalendarDate, 'yyyy-MM-dd');
@@ -142,7 +141,6 @@ export default function TurfDetailPage() {
       if (dbSlotsForDate.length > 0) {
           setSlotsForSelectedDate(dbSlotsForDate);
       } else {
-          // No slots in DB for this date, generate default 'available' slots for player view
           const defaultGeneratedSlots = generateDefaultSlotsForPlayerView(dateStr, resolvedTurfId);
           setSlotsForSelectedDate(defaultGeneratedSlots);
       }
@@ -171,83 +169,45 @@ export default function TurfDetailPage() {
   };
 
   const handleConfirmMultipleBookings = async () => {
-    if (!user || !turf || pendingBookingSlots.length === 0 || !resolvedTurfId) {
-      toast({ title: "Error", description: "No slots selected, user not logged in, or turf ID missing.", variant: "destructive" });
+    if (!user || !turf || pendingBookingSlots.length === 0 || !resolvedTurfId || !selectedCalendarDate) {
+      toast({ title: "Error", description: "No slots selected, user not logged in, turf ID, or date missing.", variant: "destructive" });
       setIsBookingDialogOpen(false);
       return;
     }
 
-    let bookingsMadeCount = 0;
-    let bookingFailed = false;
-    const mutableAllSlots = [...allSlots]; // Create a mutable copy of current DB slots
-    const successfullyBookedSlotDetails: {tempId: string, persistentId: string, timeRange: string, date: string}[] = [];
-
-
-    for (const slotToBook of pendingBookingSlots) { // slotToBook.id here is temporary if it's a default generated one
-      const newBookingData: Omit<Booking, 'id' | 'createdAt'> = {
-          turfId: turf.id,
-          playerId: user.uid,
-          slotId: slotToBook.id, // This temporary ID is passed to addBookingToDB
-          turfName: turf.name,
-          turfLocation: turf.location,
-          timeRange: slotToBook.timeRange,
-          bookingDate: slotToBook.date,
-          status: 'pending',
-          paymentStatus: 'unpaid',
-          totalAmount: turf.pricePerHour,
-      };
-      try {
-          const confirmedBooking = addBookingToDB(newBookingData); // This returns booking with persistent slotId
-          successfullyBookedSlotDetails.push({
-            tempId: slotToBook.id,
-            persistentId: confirmedBooking.slotId,
-            timeRange: slotToBook.timeRange,
-            date: slotToBook.date
-          });
-          bookingsMadeCount++;
-      } catch (error) {
-          bookingFailed = true;
-          console.error(`Error creating booking for slot ${slotToBook.id}:`, error);
-          toast({ title: "Booking Failed", description: `Could not book slot ${slotToBook.timeRange}.`, variant: "destructive"});
-      }
-    }
+    const slotsToBookInfo = pendingBookingSlots.map(slot => ({
+        tempSlotId: slot.id, // This ID might be temporary if it's a default generated one
+        timeRange: slot.timeRange,
+        price: turf.pricePerHour, // Assuming price per hour is per slot for now
+    }));
     
-    // Update local UI state (mutableAllSlots) to reflect bookings
-    successfullyBookedSlotDetails.forEach(bookedDetail => {
-        let slotIndex = mutableAllSlots.findIndex(s => s.id === bookedDetail.persistentId); // Check against persistent ID first
-        if (slotIndex > -1) { // Slot existed in DB, update it
-            mutableAllSlots[slotIndex] = { ...mutableAllSlots[slotIndex], status: 'booked', bookedBy: user.uid };
-        } else { // Slot was a default, wasn't in original `allSlots`, add it now that it's in DB
-            mutableAllSlots.push({
-                id: bookedDetail.persistentId,
-                turfId: turf.id,
-                date: bookedDetail.date,
-                timeRange: bookedDetail.timeRange,
-                status: 'booked',
-                bookedBy: user.uid,
-                createdAt: new Date() 
-            });
-        }
-    });
+    try {
+      const confirmedBooking = addBookingToDB(
+          user.uid,
+          turf.id,
+          turf.name,
+          turf.location,
+          format(selectedCalendarDate, 'yyyy-MM-dd'),
+          slotsToBookInfo
+      );
+        
+      // Update local UI state: fetch all slots again to get persistent IDs and updated statuses
+      const updatedDbSlots = fetchSlotsForTurf(turf.id);
+      setAllSlots(updatedDbSlots);
 
-    setAllSlots(mutableAllSlots); // Update the main slots state with changes
-
-    if (bookingsMadeCount > 0 && !bookingFailed) {
       toast({
-        title: `Booking Successful (${bookingsMadeCount} slot${bookingsMadeCount > 1 ? 's' : ''})`,
-        description: `Your booking${bookingsMadeCount > 1 ? 's are' : ' is'} pending confirmation. Check 'My Bookings'.`,
+        title: `Booking Successful (${confirmedBooking.bookedSlotDetails.length} slot${confirmedBooking.bookedSlotDetails.length > 1 ? 's' : ''})`,
+        description: `Your booking is pending confirmation. Check 'My Bookings'.`,
         variant: "default",
       });
-    } else if (bookingsMadeCount > 0 && bookingFailed) {
-        toast({
-        title: `Partial Booking (${bookingsMadeCount} slot${bookingsMadeCount > 1 ? 's' : ''})`,
-        description: `Some slots were booked. Others failed. Check 'My Bookings'.`,
-        variant: "default",
-      });
-    }
 
-    setPendingBookingSlots([]);
-    setIsBookingDialogOpen(false);
+    } catch (error) {
+        console.error(`Error creating consolidated booking:`, error);
+        toast({ title: "Booking Failed", description: `Could not book selected slots. Some may have become unavailable.`, variant: "destructive"});
+    } finally {
+        setPendingBookingSlots([]);
+        setIsBookingDialogOpen(false);
+    }
   };
   
   const handleReviewSubmitted = (rating: number, comment: string) => {
@@ -484,8 +444,8 @@ export default function TurfDetailPage() {
                     <p><strong>Turf:</strong> {turf.name}</p>
                     <p><strong>Date:</strong> {selectedCalendarDate ? format(selectedCalendarDate, "PPP") : 'N/A'}</p>
                     <div>
-                      <strong className="block mb-1">Selected Slots:</strong>
-                      <ul className="space-y-1">
+                      <strong className="block mb-1">Selected Slots ({pendingBookingSlots.length}):</strong>
+                      <ul className="space-y-1 max-h-20 overflow-y-auto">
                         {pendingBookingSlots.map(slot => 
                             <li key={slot.id} className="flex items-center text-xs bg-background border border-border rounded-md px-2 py-1">
                                 <Clock className="h-3 w-3 mr-1.5 text-muted-foreground"/> {slot.timeRange}
@@ -507,6 +467,7 @@ export default function TurfDetailPage() {
                         setIsBookingDialogOpen(true);
                       }}
                       className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+                      disabled={pendingBookingSlots.length === 0}
                     >
                        {user ? `Confirm ${pendingBookingSlots.length} Slot${pendingBookingSlots.length > 1 ? 's' : ''}` : 'Login to Book'}
                     </Button>
@@ -595,8 +556,8 @@ export default function TurfDetailPage() {
             <DialogTitle>Confirm Your Booking</DialogTitle>
             <DialogDescription asChild>
               <div>
-                You are about to book the following slots for <strong>{turf.name}</strong> on <strong>{selectedCalendarDate ? format(selectedCalendarDate, "PPP") : ''}</strong>:
-                <ul className="list-disc list-inside my-3 space-y-1 text-sm text-foreground">
+                You are about to book the following {pendingBookingSlots.length} slot(s) for <strong>{turf.name}</strong> on <strong>{selectedCalendarDate ? format(selectedCalendarDate, "PPP") : ''}</strong>:
+                <ul className="list-disc list-inside my-3 space-y-1 text-sm text-foreground max-h-32 overflow-y-auto">
                   {pendingBookingSlots.map(slot => <li key={slot.id}>{slot.timeRange}</li>)}
                 </ul>
                 Total Amount: <IndianRupee className="inline h-4 w-4 align-[-2px]"/>{totalBookingAmount.toLocaleString()}. Proceed?
