@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CalendarDays, Clock, Trash2, PlusCircle, AlertTriangle, Loader2 } from 'lucide-react';
-import { format, parseISO } from 'date-fns'; // Removed addDays as it's not used directly here for generation logic
+import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -52,15 +52,15 @@ function formatHourForTimeRange(hour: number): string {
     return `${String(h).padStart(2, '0')}:00 ${ampm}`;
 }
 
-// Helper to generate default slots from 7 AM to 12 PM (noon)
+// Helper to generate default slots from 7 AM to 12 AM (midnight)
 function generateDefaultSlots(date: string, turfId: string): Slot[] {
     const defaults: Slot[] = [];
     const startHour = 7; // 7 AM
-    const endLoopHour = 11;  // Loop until 11 for slot 11:00 AM - 12:00 PM
+    const endLoopHour = 23;  // Loop until 23 for slot 11:00 PM - 12:00 AM
 
     for (let i = startHour; i <= endLoopHour; i++) {
         const startTime = formatHourForTimeRange(i);
-        const endTime = formatHourForTimeRange(i + 1); // For 11, i+1 is 12 (12 PM)
+        const endTime = formatHourForTimeRange(i + 1); // For i=23, i+1=24, which formatHourForTimeRange handles as 12:00 AM
         const timeRange = `${startTime} - ${endTime}`;
         defaults.push({
             id: `default-slot-${date}-${i}-${Math.random().toString(16).slice(2)}`, // Temporary ID
@@ -88,19 +88,13 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
     const dbSlotsForSelectedDate = initialSlots.filter(slot => slot.date === selectedDate);
 
     if (dbSlotsForSelectedDate.length > 0) {
-      // If DB has slots for this date, use all initialSlots (which includes those for other dates too)
-      // The slotsForSelectedDate computed variable will filter for display.
-      // Ensure the entire `slots` state is correctly sorted.
       setSlots([...initialSlots].sort((a,b) => {
         const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
         if (dateComparison !== 0) return dateComparison;
         return a.timeRange.localeCompare(b.timeRange);
       }));
     } else {
-      // If DB has no slots for this specific date, generate default ones for this date.
       const defaultSlotsForDate = generateDefaultSlots(selectedDate, turf.id);
-      
-      // Combine these new default slots with any slots from initialSlots that are for *other* dates.
       const slotsFromOtherDates = initialSlots.filter(slot => slot.date !== selectedDate);
       
       setSlots([...slotsFromOtherDates, ...defaultSlotsForDate].sort((a,b) => {
@@ -121,7 +115,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
         return;
     }
     const newSlot: Slot = {
-      id: `new-slot-${Date.now()}`, // Temporary ID, backend should generate real one
+      id: `new-slot-${Date.now()}`, 
       turfId: turf.id,
       date: selectedDate,
       timeRange: newSlotTimeRange,
@@ -155,10 +149,8 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   const handleSaveChanges = async () => {
     setIsSubmitting(true);
     try {
-      await onSlotsUpdate(slots); // Call parent's save function
-      // Parent should show toast on success/failure through its own logic
+      await onSlotsUpdate(slots); 
     } catch (error) {
-        // This catch is a fallback if onSlotsUpdate itself throws an error not handled by the parent
         toast({title: "Error Saving Slots", description: "An unexpected error occurred.", variant: "destructive"})
     } finally {
       setIsSubmitting(false);
@@ -166,13 +158,13 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   };
   
   const slotsForSelectedDate = slots.filter(slot => slot.date === selectedDate)
-    .sort((a,b) => a.timeRange.localeCompare(b.timeRange)); // Sorting here is mostly for display order within the day
+    .sort((a,b) => a.timeRange.localeCompare(b.timeRange));
 
   return (
     <Card className="shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl">Manage Slots for {turf.name}</CardTitle>
-        <CardDescription>Add, edit, or remove time slots for your turf. Default slots from 7 AM to 12 PM are generated if none exist for a day. Make sure to save your changes.</CardDescription>
+        <CardDescription>Add, edit, or remove time slots for your turf. Default slots from 7 AM to 12 AM (midnight) are generated if none exist for a day. Make sure to save your changes.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Add New Slot Section */}
