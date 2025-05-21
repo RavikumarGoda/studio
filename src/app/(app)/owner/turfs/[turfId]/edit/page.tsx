@@ -1,29 +1,15 @@
+
 // src/app/(app)/owner/turfs/[turfId]/edit/page.tsx
 "use client";
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { TurfForm } from '@/components/turf/turf-form';
+import { TurfForm, type TurfFormValues } from '@/components/turf/turf-form';
 import type { Turf } from '@/types';
-import { useAuth } from '@/hooks/use-auth'; // Mock auth
+import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ShieldAlert } from 'lucide-react';
-
-// Mock data - replace with actual API call
-const mockTurfsData: Record<string, Turf> = {
-  'turf-1': {
-    id: 'turf-1',
-    ownerId: 'mock-owner-uid', // Ensure this matches the mock logged-in owner
-    name: 'Green Kick Arena',
-    location: 'Koramangala, Bangalore',
-    pricePerHour: 1200,
-    images: ['https://placehold.co/600x400.png?text=Green+Kick'],
-    amenities: ['parking', 'restroom', 'floodlights', 'wifi'],
-    description: 'State-of-the-art 5-a-side football turf with premium grass.',
-    isVisible: true,
-    createdAt: new Date(),
-  },
-};
+import { getTurfById as fetchTurfById, updateTurf as updateTurfInDB } from '@/lib/mock-db';
 
 export default function EditTurfPage() {
   const params = useParams();
@@ -36,10 +22,11 @@ export default function EditTurfPage() {
 
   useEffect(() => {
     if (turfId) {
-      // Simulate fetching turf data
-      const data = mockTurfsData[turfId];
+      setIsLoading(true);
+      const data = fetchTurfById(turfId);
       if (data) {
-        setTurfData(data);
+        // Ensure images is always an array, even if empty from DB
+        setTurfData({ ...data, images: data.images || [] });
       } else {
         toast({ title: "Error", description: "Turf not found.", variant: "destructive" });
         router.push('/owner/turfs');
@@ -48,21 +35,33 @@ export default function EditTurfPage() {
     }
   }, [turfId, router, toast]);
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: TurfFormValues) => {
     if (!user || user.role !== 'owner' || turfData?.ownerId !== user.uid) {
       toast({ title: "Error", description: "You are not authorized to edit this turf.", variant: "destructive" });
       return;
     }
+    if (!turfId) {
+        toast({ title: "Error", description: "Turf ID is missing.", variant: "destructive" });
+        return;
+    }
 
-    // Mock API call
-    console.log("Updating turf:", turfId, data);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+    try {
+      // The 'data' from TurfFormValues is compatible with the 'updates' expected by updateTurfInDB
+      // It already excludes id, ownerId, createdAt
+      updateTurfInDB(turfId, data);
+      
+      // Simulate a slight delay for user feedback
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-    toast({
-      title: "Turf Updated Successfully!",
-      description: `${data.name} details have been updated.`,
-    });
-    router.push('/owner/turfs');
+      toast({
+        title: "Turf Updated Successfully!",
+        description: `${data.name} details have been updated.`,
+      });
+      router.push('/owner/turfs');
+    } catch (error) {
+        console.error("Error updating turf:", error);
+        toast({ title: "Error", description: "Failed to update turf. Please try again.", variant: "destructive"});
+    }
   };
 
   if (isLoading || authLoading) {
@@ -75,8 +74,7 @@ export default function EditTurfPage() {
   }
 
   if (!turfData) {
-    // This case should ideally be handled by the redirect in useEffect
-    return <p>Turf not found.</p>;
+    return <p>Turf not found. You will be redirected.</p>;
   }
 
   if (!user || user.role !== 'owner' || turfData.ownerId !== user.uid) {

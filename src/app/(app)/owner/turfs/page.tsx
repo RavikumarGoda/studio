@@ -1,42 +1,16 @@
+
 // src/app/(app)/owner/turfs/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
 import { OwnerTurfCard } from '@/components/turf/owner-turf-card';
 import type { Turf } from '@/types';
-import { useAuth } from '@/hooks/use-auth'; // Mock auth
+import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle, Loader2, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-// Mock data - replace with actual API call
-const mockOwnerTurfs: Turf[] = [
-  {
-    id: 'turf-1',
-    ownerId: 'mock-owner-uid',
-    name: 'Green Kick Arena',
-    location: 'Koramangala, Bangalore',
-    pricePerHour: 1200,
-    images: ['https://placehold.co/600x400.png?text=Green+Kick'],
-    amenities: ['parking', 'restroom', 'floodlights', 'wifi'],
-    description: 'State-of-the-art 5-a-side football turf with premium grass.',
-    isVisible: true,
-    createdAt: new Date(),
-  },
-  {
-    id: 'turf-3',
-    ownerId: 'mock-owner-uid',
-    name: 'Net Masters Badminton',
-    location: 'HSR Layout, Bangalore',
-    pricePerHour: 500,
-    images: ['https://placehold.co/600x400.png?text=Net+Masters'],
-    amenities: ['parking', 'restroom', 'gym'],
-    description: 'Professional wooden badminton courts with excellent lighting.',
-    isVisible: false,
-    createdAt: new Date(),
-  },
-];
+import { getOwnerTurfs as fetchOwnerTurfsFromDB, updateTurf as updateTurfInDB } from '@/lib/mock-db';
 
 export default function OwnerTurfsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -46,25 +20,39 @@ export default function OwnerTurfsPage() {
 
   useEffect(() => {
     if (!authLoading && user && user.role === 'owner') {
-      // Simulate fetching turfs for the current owner
-      const ownerSpecificTurfs = mockOwnerTurfs.filter(t => t.ownerId === user.uid);
-      setTurfs(ownerSpecificTurfs);
-      setIsLoading(false);
+      setIsLoading(true);
+      try {
+        const ownerSpecificTurfs = fetchOwnerTurfsFromDB(user.uid);
+        setTurfs(ownerSpecificTurfs);
+      } catch (error) {
+        console.error("Error fetching owner turfs:", error);
+        toast({ title: "Error", description: "Could not load your turfs.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
     } else if (!authLoading && (!user || user.role !== 'owner')) {
-      // Handle case where user is not an owner
-      setIsLoading(false);
+      setIsLoading(false); // Not an owner or not logged in
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, toast]);
 
   const handleVisibilityToggle = (turfId: string, isVisible: boolean) => {
-    // Mock update logic
-    setTurfs(prevTurfs => 
-      prevTurfs.map(t => t.id === turfId ? { ...t, isVisible } : t)
-    );
-    toast({
-      title: `Turf visibility ${isVisible ? 'enabled' : 'disabled'}`,
-      description: `${turfs.find(t=>t.id===turfId)?.name} is now ${isVisible ? 'visible' : 'hidden'} to players.`,
-    });
+    try {
+      const updatedTurf = updateTurfInDB(turfId, { isVisible });
+      if (updatedTurf) {
+        setTurfs(prevTurfs => 
+          prevTurfs.map(t => t.id === turfId ? { ...t, isVisible } : t)
+        );
+        toast({
+          title: `Turf visibility ${isVisible ? 'enabled' : 'disabled'}`,
+          description: `${updatedTurf.name} is now ${isVisible ? 'visible' : 'hidden'} to players.`,
+        });
+      } else {
+        toast({ title: "Error", description: "Failed to update turf visibility.", variant: "destructive"});
+      }
+    } catch (error) {
+        console.error("Error toggling turf visibility:", error);
+        toast({ title: "Error", description: "Could not update turf visibility.", variant: "destructive"});
+    }
   };
 
   if (isLoading || authLoading) {
@@ -85,7 +73,6 @@ export default function OwnerTurfsPage() {
       </div>
     );
   }
-
 
   return (
     <div className="space-y-8">

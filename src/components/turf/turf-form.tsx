@@ -1,3 +1,4 @@
+
 // src/components/turf/turf-form.tsx
 "use client";
 
@@ -25,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { UploadCloud, XCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useState, ChangeEvent } from "react";
+import { useState, ChangeEvent, useEffect } from "react";
 
 const turfFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -35,11 +36,11 @@ const turfFormSchema = z.object({
   amenities: z.array(z.string()).refine(value => value.some(item => item), {
     message: "You have to select at least one amenity.",
   }),
-  images: z.array(z.string().url("Invalid URL format")).min(1, "At least one image is required."), // For URLs after upload
+  images: z.array(z.string().url("Invalid URL format or mock URL expected.")).min(1, "At least one image is required."),
   isVisible: z.boolean().default(true),
 });
 
-type TurfFormValues = z.infer<typeof turfFormSchema>;
+export type TurfFormValues = z.infer<typeof turfFormSchema>;
 
 const allAmenitiesList = [
   { id: "parking", label: "Parking" },
@@ -54,16 +55,21 @@ const allAmenitiesList = [
 
 
 interface TurfFormProps {
-  initialData?: Partial<Turf>; // For editing
-  onSubmitForm: (data: TurfFormValues) => Promise<void>; // Make it async
+  initialData?: Partial<Turf>; 
+  onSubmitForm: (data: TurfFormValues) => Promise<void>;
 }
 
 export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  
+  // State for actual File objects, to be uploaded
+  const [imageFilesToUpload, setImageFilesToUpload] = useState<File[]>([]);
+  // State for all image previews (blob URLs for new files, existing URLs for old ones)
   const [imagePreviews, setImagePreviews] = useState<string[]>(initialData?.images || []);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Renamed to avoid conflict
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   const form = useForm<TurfFormValues>({
     resolver: zodResolver(turfFormSchema),
@@ -73,55 +79,103 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
       pricePerHour: initialData?.pricePerHour || 0,
       description: initialData?.description || "",
       amenities: initialData?.amenities || [],
-      images: initialData?.images || [], // Store URLs here
+      images: initialData?.images || [], // This will store the final URLs for the form
       isVisible: initialData?.isVisible === undefined ? true : initialData.isVisible,
     },
   });
+  
+  // Sync form's images field if initialData.images changes (e.g. after edit load)
+  useEffect(() => {
+    if (initialData?.images) {
+      form.setValue("images", initialData.images);
+      setImagePreviews(initialData.images);
+    }
+  }, [initialData?.images, form]);
 
-  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+
+  const handleImageFilesChange = async (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
-      setImageFiles(prev => [...prev, ...filesArray]);
+      if (imagePreviews.length + filesArray.length > 5) {
+        toast({ title: "Image Limit", description: "You can upload a maximum of 5 images.", variant: "destructive" });
+        return;
+      }
 
-      const newPreviews = filesArray.map(file => URL.createObjectURL(file));
-      setImagePreviews(prev => [...prev, ...newPreviews]);
+      setIsUploadingImages(true);
       
+      const newLocalPreviews = filesArray.map(file => URL.createObjectURL(file));
+      setImagePreviews(prev => [...prev, ...newLocalPreviews]);
+      
+      // Store files for "upload" simulation
+      setImageFilesToUpload(prev => [...prev, ...filesArray]);
+
       // Simulate upload and get URLs
-      // In a real app, upload files to Firebase Storage here and get downloadURLs
-      const uploadedUrls = await Promise.all(filesArray.map(async (file) => {
-        // Mock upload delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        // This is a mock URL. Replace with actual Firebase Storage URL.
-        return `https://placehold.co/600x400.png?text=${encodeURIComponent(file.name)}`;
-      }));
+      const uploadedUrlsPromises = filesArray.map(async (file) => {
+        await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500)); // Simulate upload delay
+        return `https://placehold.co/600x400.png?text=${encodeURIComponent(file.name.substring(0,10))}`; // Mock URL
+      });
+      
+      const newUploadedUrls = await Promise.all(uploadedUrlsPromises);
       
       const currentImageUrls = form.getValues("images");
-      form.setValue("images", [...currentImageUrls, ...uploadedUrls], { shouldValidate: true });
+      form.setValue("images", [...currentImageUrls, ...newUploadedUrls], { shouldValidate: true });
+      
+      // Clear the file input so the same file can be selected again if removed and re-added
+      event.target.value = ""; 
+      setIsUploadingImages(false);
     }
   };
 
-  const removeImage = (index: number, isPreviewUrl: boolean) => {
-    // if isPreviewUrl is true, it's an object URL from a new file. Otherwise, it's an existing URL.
-    if (isPreviewUrl) {
-        setImageFiles(prev => prev.filter((_, i) => i !== index - (imagePreviews.length - imageFiles.length))); // Adjust index if existing images present
-        setImagePreviews(prev => prev.filter((_, i) => i !== index));
-         // Also remove corresponding mock URL if it was added (this part is tricky with mixed state)
-        // For simplicity, we assume URLs are added only after "upload".
-        // This mock needs to be improved for robust URL handling during removal.
-        // The current form.setValue("images", ...) might oversimplify this part.
-    } else { // It's an existing URL from initialData or already "uploaded"
-        const urls = form.getValues("images");
-        form.setValue("images", urls.filter((_, i) => i !== index), { shouldValidate: true });
-        setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  const removeImage = (indexToRemove: number) => {
+    // Remove from previews
+    const removedPreview = imagePreviews[indexToRemove];
+    setImagePreviews(prev => prev.filter((_, i) => i !== indexToRemove));
+
+    // Remove from form's 'images' (URLs)
+    // If the removed preview was a blob URL, it means it was from imageFilesToUpload
+    // and its corresponding mock URL needs to be removed. Otherwise, it's an existing URL.
+    
+    const currentUrls = form.getValues("images");
+    let urlToRemove = "";
+
+    if (removedPreview.startsWith('blob:')) {
+        // This is complex: we need to find which URL in `form.getValues("images")` corresponds to this blob.
+        // For this mock, we assume a simple mapping or might need a more robust way to track.
+        // A simpler mock: if it's a blob, we might need to find its "uploaded" URL.
+        // This part of the mock is imperfect without a real upload mapping.
+        // Let's assume for now it's an already "uploaded" URL if not a blob.
+        // One way: try to find a URL in currentUrls that was recently added if imageFilesToUpload had items.
+
+        // For simplicity, if we remove a preview, we also remove its corresponding URL from the form.
+        // This requires knowing which URL corresponds to which preview.
+        // The easiest way is if form.setValue("images", imagePreviews.filter(...)) but previews can be blob or existing.
+        // So, we try to remove the URL at the same index. This assumes `images` and `previews` are somewhat synced
+        // with new URLs appended.
+         if (indexToRemove < currentUrls.length) { // defensive check
+            const updatedUrls = currentUrls.filter((_, i) => i !== indexToRemove);
+            form.setValue("images", updatedUrls, { shouldValidate: true });
+        }
+
+    } else { // It's an existing URL (e.g. from initialData or already "uploaded")
+        urlToRemove = removedPreview;
+        const updatedUrls = currentUrls.filter(url => url !== urlToRemove);
+        form.setValue("images", updatedUrls, { shouldValidate: true });
     }
+    
+    // Also try to remove from imageFilesToUpload if it was a new file
+    // This requires tracking which preview corresponds to which file more accurately.
+    // For now, this part of the mock for `imageFilesToUpload` might not be perfectly synced with preview removal.
   };
+
 
   async function onSubmit(data: TurfFormValues) {
-    setIsSubmitting(true);
+    if (isUploadingImages) {
+        toast({ title: "Please Wait", description: "Images are still uploading.", variant: "default"});
+        return;
+    }
+    setIsSubmittingForm(true);
     try {
-      // The image URLs should already be in data.images from handleImageUpload
       await onSubmitForm(data);
-      // Toast and redirect will be handled by the page calling this form.
     } catch (error) {
       toast({
         title: "Error",
@@ -129,15 +183,15 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingForm(false);
     }
   }
 
   return (
     <Card className="shadow-xl">
         <CardHeader>
-            <CardTitle className="text-2xl">{initialData ? "Edit Turf" : "Add New Turf"}</CardTitle>
-            <CardDescription>{initialData ? "Update the details of your turf." : "Fill in the details to list your turf on TurfLink."}</CardDescription>
+            <CardTitle className="text-2xl">{initialData?.id ? "Edit Turf" : "Add New Turf"}</CardTitle>
+            <CardDescription>{initialData?.id ? "Update the details of your turf." : "Fill in the details to list your turf on TurfLink."}</CardDescription>
         </CardHeader>
         <CardContent>
             <Form {...form}>
@@ -149,7 +203,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                     <FormItem>
                     <FormLabel>Turf Name</FormLabel>
                     <FormControl>
-                        <Input placeholder="E.g., Champions Arena" {...field} />
+                        <Input placeholder="E.g., Champions Arena" {...field} disabled={isSubmittingForm || isUploadingImages} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -163,7 +217,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                     <FormItem>
                     <FormLabel>Location / Address</FormLabel>
                     <FormControl>
-                        <Input placeholder="E.g., 123 Main St, Anytown" {...field} />
+                        <Input placeholder="E.g., 123 Main St, Anytown" {...field} disabled={isSubmittingForm || isUploadingImages} />
                     </FormControl>
                      <FormDescription>Use Google Maps link or a clear address.</FormDescription>
                     <FormMessage />
@@ -178,7 +232,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                     <FormItem>
                     <FormLabel>Price Per Hour (₹)</FormLabel>
                     <FormControl>
-                        <Input type="number" placeholder="E.g., 1000" {...field} />
+                        <Input type="number" placeholder="E.g., 1000" {...field} disabled={isSubmittingForm || isUploadingImages}/>
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -192,7 +246,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                     <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                        <Textarea rows={5} placeholder="Detailed description of your turf, facilities, rules, etc." {...field} />
+                        <Textarea rows={5} placeholder="Detailed description of your turf, facilities, rules, etc." {...field} disabled={isSubmittingForm || isUploadingImages}/>
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -234,6 +288,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                                             )
                                         );
                                     }}
+                                    disabled={isSubmittingForm || isUploadingImages}
                                 />
                                 </FormControl>
                                 <FormLabel className="font-normal">
@@ -253,7 +308,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                 <FormField
                   control={form.control}
                   name="images"
-                  render={({ field }) => (
+                  render={({ field }) => ( // field here is for the array of URLs
                     <FormItem>
                       <FormLabel>Turf Images</FormLabel>
                       <FormControl>
@@ -263,41 +318,54 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                             id="file-upload"
                             multiple
                             accept="image/*"
-                            onChange={handleImageUpload}
+                            onChange={handleImageFilesChange}
                             className="hidden"
+                            disabled={isSubmittingForm || isUploadingImages || imagePreviews.length >= 5}
                           />
                            <Label 
                             htmlFor="file-upload"
-                            className="flex items-center justify-center w-full h-32 px-4 transition bg-background border-2 border-dashed rounded-md appearance-none cursor-pointer hover:border-primary focus:outline-none"
+                            className={cn(
+                                "flex items-center justify-center w-full h-32 px-4 transition bg-background border-2 border-dashed rounded-md appearance-none cursor-pointer hover:border-primary focus:outline-none",
+                                (isSubmittingForm || isUploadingImages || imagePreviews.length >= 5) && "cursor-not-allowed opacity-50"
+                            )}
                           >
-                            <span className="flex items-center space-x-2">
-                              <UploadCloud className="w-6 h-6 text-muted-foreground" />
-                              <span className="font-medium text-muted-foreground">
-                                Click to upload or drag and drop
-                              </span>
-                            </span>
+                            {isUploadingImages ? (
+                                <span className="flex items-center space-x-2">
+                                 <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+                                 <span className="font-medium text-muted-foreground">Uploading...</span>
+                                </span>
+                            ) : (
+                                <span className="flex items-center space-x-2">
+                                <UploadCloud className="w-6 h-6 text-muted-foreground" />
+                                <span className="font-medium text-muted-foreground">
+                                    {imagePreviews.length >= 5 ? "Maximum 5 images" : "Click to upload (Max 5)"}
+                                </span>
+                                </span>
+                            )}
                           </Label>
                         </div>
                       </FormControl>
-                      <FormDescription>Upload at least one image of your turf. Max 5 images.</FormDescription>
+                      <FormDescription>Upload 1-5 images of your turf. First image is primary.</FormDescription>
                       {imagePreviews.length > 0 && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
-                          {imagePreviews.map((preview, index) => (
-                            <div key={index} className="relative group">
+                          {imagePreviews.map((previewUrl, index) => (
+                            <div key={previewUrl || index} className="relative group">
                               <Image
-                                src={preview}
+                                src={previewUrl}
                                 alt={`Preview ${index + 1}`}
                                 width={150}
                                 height={100}
                                 className="rounded-md object-cover w-full h-24"
                                 data-ai-hint="turf facility"
+                                unoptimized={previewUrl.startsWith('blob:')} // Important for blob URLs
                               />
                               <Button
                                 type="button"
                                 variant="destructive"
                                 size="icon"
-                                className="absolute top-1 right-1 h-6 w-6 opacity-75 group-hover:opacity-100"
-                                onClick={() => removeImage(index, preview.startsWith('blob:'))}
+                                className="absolute top-1 right-1 h-6 w-6 opacity-75 group-hover:opacity-100 z-10"
+                                onClick={() => removeImage(index)}
+                                disabled={isSubmittingForm || isUploadingImages}
                               >
                                 <XCircle className="h-4 w-4" />
                               </Button>
@@ -326,6 +394,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                             <Switch
                             checked={field.value}
                             onCheckedChange={field.onChange}
+                            disabled={isSubmittingForm || isUploadingImages}
                             />
                         </FormControl>
                     </FormItem>
@@ -333,12 +402,12 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                 />
 
                 <div className="flex justify-end space-x-4">
-                    <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+                    <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmittingForm || isUploadingImages}>
                         Cancel
                     </Button>
-                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {initialData ? "Save Changes" : "Add Turf"}
+                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmittingForm || isUploadingImages || form.getValues("images").length === 0}>
+                        {(isSubmittingForm || isUploadingImages) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {initialData?.id ? "Save Changes" : "Add Turf"}
                     </Button>
                 </div>
             </form>

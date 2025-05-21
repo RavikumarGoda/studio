@@ -1,10 +1,11 @@
+
 // src/app/(app)/player/bookings/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
 import { BookingCard } from '@/components/booking/booking-card';
 import type { Booking } from '@/types';
-import { useAuth } from '@/hooks/use-auth'; // Mock auth
+import { useAuth } from '@/hooks/use-auth';
 import { Loader2, CalendarX2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -16,69 +17,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
-
-// Mock data - replace with actual API call
-const mockBookings: Booking[] = [
-  {
-    id: 'booking-1',
-    turfId: 'turf-1',
-    playerId: 'mock-player-uid',
-    slotId: 'slot-1-1',
-    turfName: 'Green Kick Arena',
-    turfLocation: 'Koramangala, Bangalore',
-    timeRange: '09:00 AM - 10:00 AM',
-    bookingDate: '2024-07-20',
-    status: 'approved',
-    paymentStatus: 'paid',
-    totalAmount: 1200,
-    createdAt: new Date(2024, 6, 10),
-  },
-  {
-    id: 'booking-2',
-    turfId: 'featured-turf-id',
-    playerId: 'mock-player-uid',
-    slotId: 'slot-f-1',
-    turfName: 'City Sports Arena',
-    turfLocation: 'Downtown, Metropolis',
-    timeRange: '05:00 PM - 06:00 PM',
-    bookingDate: '2024-07-22',
-    status: 'pending',
-    paymentStatus: 'unpaid',
-    totalAmount: 1500,
-    createdAt: new Date(2024, 6, 15),
-  },
-  {
-    id: 'booking-3',
-    turfId: 'turf-2', // Assuming turf-2 exists in mockTurfsData
-    playerId: 'mock-player-uid',
-    slotId: 'slot-2-1', // Assuming this slot exists
-    turfName: 'Victory Playfield',
-    turfLocation: 'Indiranagar, Bangalore',
-    timeRange: '07:00 PM - 08:00 PM',
-    bookingDate: '2024-06-28',
-    status: 'completed',
-    paymentStatus: 'paid',
-    totalAmount: 1000,
-    createdAt: new Date(2024, 5, 20),
-  },
-   {
-    id: 'booking-4',
-    turfId: 'turf-1',
-    playerId: 'mock-player-uid',
-    slotId: 'slot-1-x',
-    turfName: 'Green Kick Arena',
-    turfLocation: 'Koramangala, Bangalore',
-    timeRange: '11:00 AM - 12:00 PM',
-    bookingDate: '2024-07-25',
-    status: 'cancelled',
-    paymentStatus: 'unpaid',
-    totalAmount: 1200,
-    createdAt: new Date(2024, 6, 18),
-  },
-];
+import Link from 'next/link';
+import { getBookingsForPlayer as fetchPlayerBookings, updateBooking as updateBookingInDB } from '@/lib/mock-db';
 
 export default function PlayerBookingsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -90,30 +32,46 @@ export default function PlayerBookingsPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      // Simulate fetching bookings for the current player
-      const userBookings = mockBookings.filter(b => b.playerId === user.uid)
-        .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime() || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setBookings(userBookings);
-      setIsLoading(false);
+      setIsLoading(true);
+      try {
+        const userBookings = fetchPlayerBookings(user.uid)
+          .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime() || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setBookings(userBookings);
+      } catch (error) {
+        console.error("Error fetching player bookings:", error);
+        toast({ title: "Error", description: "Could not load your bookings.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
     } else if (!authLoading && !user) {
-      // Handle case where user is not logged in, perhaps redirect or show message
       setIsLoading(false);
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, toast]);
 
-  const handleCancelBooking = (bookingId: string) => {
-    console.log("Cancelling booking:", bookingId);
-    // Mock cancellation logic
-    setBookings(prevBookings =>
-      prevBookings.map(b =>
-        b.id === bookingId ? { ...b, status: 'cancelled' } : b
-      )
-    );
-    toast({
-      title: "Booking Cancelled",
-      description: `Booking ID ${bookingId} has been cancelled.`,
-    });
-    setBookingToCancel(null);
+  const handleConfirmCancelBooking = () => {
+    if (!bookingToCancel) return;
+    
+    try {
+      const updatedBooking = updateBookingInDB(bookingToCancel, { status: 'cancelled' });
+      if (updatedBooking) {
+        setBookings(prevBookings =>
+          prevBookings.map(b =>
+            b.id === bookingToCancel ? { ...b, status: 'cancelled' } : b
+          )
+        );
+        toast({
+          title: "Booking Cancelled",
+          description: `Booking ID ${bookingToCancel} has been cancelled.`,
+        });
+      } else {
+        toast({ title: "Error", description: "Failed to cancel booking.", variant: "destructive" });
+      }
+    } catch (error) {
+        console.error("Error cancelling booking:", error);
+        toast({ title: "Error", description: "Could not cancel booking.", variant: "destructive" });
+    } finally {
+        setBookingToCancel(null);
+    }
   };
 
   if (isLoading || authLoading) {
@@ -131,6 +89,9 @@ export default function PlayerBookingsPage() {
         <CalendarX2 className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
         <h2 className="text-xl font-semibold mb-2">Please log in</h2>
         <p className="text-muted-foreground">Log in to view your turf bookings.</p>
+         <Link href="/login" className="mt-4 inline-block">
+            <Button>Login</Button>
+        </Link>
       </div>
     );
   }
@@ -200,7 +161,7 @@ export default function PlayerBookingsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setBookingToCancel(null)}>Keep Booking</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => bookingToCancel && handleCancelBooking(bookingToCancel)}
+              onClick={handleConfirmCancelBooking}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Confirm Cancellation
@@ -208,7 +169,6 @@ export default function PlayerBookingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
     </div>
   );
 }

@@ -1,55 +1,16 @@
+
 // src/app/(app)/owner/turfs/[turfId]/manage-slots/page.tsx
 "use client";
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { Turf, Slot } from '@/types';
-import { useAuth } from '@/hooks/use-auth'; // Mock auth
+import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { SlotManager } from '@/components/turf/slot-manager';
 import { Loader2, ShieldAlert, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
-
-
-// Mock data - replace with actual API calls
-const mockTurfsData: Record<string, Turf> = {
-  'turf-1': {
-    id: 'turf-1',
-    ownerId: 'mock-owner-uid',
-    name: 'Green Kick Arena',
-    location: 'Koramangala, Bangalore',
-    pricePerHour: 1200,
-    images: ['https://placehold.co/600x400.png?text=Green+Kick'],
-    amenities: ['parking', 'restroom', 'floodlights', 'wifi'],
-    description: 'State-of-the-art 5-a-side football turf with premium grass.',
-    isVisible: true,
-    createdAt: new Date(),
-  },
-   'turf-3': {
-    id: 'turf-3',
-    ownerId: 'mock-owner-uid',
-    name: 'Net Masters Badminton',
-    location: 'HSR Layout, Bangalore',
-    pricePerHour: 500,
-    images: ['https://placehold.co/600x400.png?text=Net+Masters'],
-    amenities: ['parking', 'restroom', 'gym'],
-    description: 'Professional wooden badminton courts with excellent lighting.',
-    isVisible: false,
-    createdAt: new Date(),
-  },
-};
-
-const mockSlotsData: Record<string, Slot[]> = {
-  'turf-1': [
-    { id: 'slot-1-1', turfId: 'turf-1', date: '2024-07-20', timeRange: '09:00 AM - 10:00 AM', status: 'available', createdAt: new Date() },
-    { id: 'slot-1-2', turfId: 'turf-1', date: '2024-07-20', timeRange: '10:00 AM - 11:00 AM', status: 'booked', bookedBy: 'player-x', createdAt: new Date() },
-    { id: 'slot-1-3', turfId: 'turf-1', date: '2024-07-21', timeRange: '06:00 PM - 07:00 PM', status: 'available', createdAt: new Date() },
-  ],
-  'turf-3': [
-     { id: 'slot-3-1', turfId: 'turf-3', date: '2024-07-22', timeRange: '05:00 PM - 06:00 PM', status: 'maintenance', createdAt: new Date() },
-  ]
-};
-
+import { getTurfById as fetchTurfById, getSlotsForTurf as fetchSlotsForTurf, updateSlotsForTurf as updateSlotsInDB } from '@/lib/mock-db';
 
 export default function ManageSlotsPage() {
   const params = useParams();
@@ -63,18 +24,24 @@ export default function ManageSlotsPage() {
 
   useEffect(() => {
     if (turfId) {
-      // Simulate fetching turf and slots data
-      const turfData = mockTurfsData[turfId];
-      const slotsData = mockSlotsData[turfId] || [];
-      
-      if (turfData) {
-        setTurf(turfData);
-        setSlots(slotsData);
-      } else {
-        toast({ title: "Error", description: "Turf not found.", variant: "destructive" });
-        router.push('/owner/turfs');
+      setIsLoading(true);
+      try {
+        const turfData = fetchTurfById(turfId);
+        const slotsData = fetchSlotsForTurf(turfId);
+        
+        if (turfData) {
+          setTurf(turfData);
+          setSlots(slotsData);
+        } else {
+          toast({ title: "Error", description: "Turf not found.", variant: "destructive" });
+          router.push('/owner/turfs');
+        }
+      } catch (error) {
+          console.error("Error fetching turf/slots data:", error);
+          toast({ title: "Error", description: "Could not load turf or slot data.", variant: "destructive"});
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
   }, [turfId, router, toast]);
 
@@ -83,19 +50,26 @@ export default function ManageSlotsPage() {
       toast({ title: "Error", description: "You are not authorized to update slots for this turf.", variant: "destructive" });
       return;
     }
-    // Mock API call to save slots
-    console.log("Saving updated slots for turf:", turfId, updatedSlots);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+    if (!turfId) {
+        toast({ title: "Error", description: "Turf ID is missing for slot update.", variant: "destructive"});
+        return;
+    }
     
-    // Update local state after "successful" save
-    // In a real app, you might refetch or trust the optimistic update
-    setSlots(updatedSlots); // Assuming updatedSlots contains backend-generated IDs if any were new.
-    mockSlotsData[turfId] = updatedSlots; // Update mock database for demo persistence
+    try {
+      updateSlotsInDB(turfId, updatedSlots);
+      // Simulate a slight delay for user feedback
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      setSlots(fetchSlotsForTurf(turfId)); // Re-fetch to ensure consistency if IDs changed or for confirmation
 
-    toast({
-      title: "Slots Updated Successfully!",
-      description: `Availability for ${turf?.name} has been saved.`,
-    });
+      toast({
+        title: "Slots Updated Successfully!",
+        description: `Availability for ${turf?.name} has been saved.`,
+      });
+    } catch (error) {
+        console.error("Error updating slots:", error);
+        toast({ title: "Error", description: "Failed to update slots. Please try again.", variant: "destructive"});
+    }
   };
 
   if (isLoading || authLoading) {
@@ -108,7 +82,7 @@ export default function ManageSlotsPage() {
   }
 
   if (!turf) {
-    return <p>Turf not found.</p>;
+    return <p>Turf not found. You will be redirected.</p>;
   }
   
   if (!user || user.role !== 'owner' || turf.ownerId !== user.uid) {

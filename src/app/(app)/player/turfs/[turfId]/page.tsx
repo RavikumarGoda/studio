@@ -1,21 +1,22 @@
+
 // src/app/(app)/player/turfs/[turfId]/page.tsx
 "use client";
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { MapPin, IndianRupee as RupeeIcon, Star, Clock, CalendarDays, Users, ParkingCircle, ShowerHead, Lightbulb,ChevronLeft } from 'lucide-react';
+import { MapPin, IndianRupee, Star, Clock, CalendarDays, ChevronLeft, Loader2 as PageLoaderIcon } from 'lucide-react'; // Renamed Loader2 to avoid conflict
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import type { Turf, Slot, Review } from '@/types';
+import type { Turf, Slot, Review, Booking } from '@/types';
 import { AmenityIcon } from '@/components/turf/amenity-icon';
 import { ReviewCard } from '@/components/turf/review-card';
 import { ReviewForm } from '@/components/turf/review-form';
 import { AiReviewSummary } from '@/components/turf/ai-review-summary';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 import {
   Dialog,
   DialogContent,
@@ -26,123 +27,121 @@ import {
   DialogFooter,
   DialogClose
 } from "@/components/ui/dialog";
-
-
-// Mock data - replace with actual API calls
-const mockTurfsData: Record<string, Turf> = {
-  'turf-1': {
-    id: 'turf-1',
-    ownerId: 'owner-1',
-    name: 'Green Kick Arena',
-    location: 'Koramangala, Bangalore',
-    pricePerHour: 1200,
-    images: ['https://placehold.co/800x500.png?text=Green+Kick+Main', 'https://placehold.co/400x300.png?text=GK+Side', 'https://placehold.co/400x300.png?text=GK+Goal'],
-    amenities: ['parking', 'restroom', 'floodlights', 'wifi', 'cafe'],
-    description: 'State-of-the-art 5-a-side football turf with premium FIFA-certified artificial grass. Enjoy thrilling matches under bright floodlights. We offer clean restrooms, ample parking space, and a small cafe for refreshments. Perfect for friendly games and competitive tournaments.',
-    isVisible: true,
-    createdAt: new Date(),
-    averageRating: 4.5,
-    reviewCount: 25,
-  },
-   'featured-turf-id': { // For the featured turf link from dashboard
-    id: 'featured-turf-id',
-    ownerId: 'owner-f',
-    name: 'City Sports Arena',
-    location: 'Downtown, Metropolis',
-    pricePerHour: 1500,
-    images: ['https://placehold.co/800x500.png?text=City+Sports+Main', 'https://placehold.co/400x300.png?text=CSA+Court'],
-    amenities: ['parking', 'restroom', 'floodlights', 'wifi'],
-    description: 'The best 5-a-side turf in downtown. Features high-quality turf, excellent lighting, and spectator seating. Ideal for both casual play and organized events.',
-    isVisible: true,
-    createdAt: new Date(),
-    averageRating: 4.7,
-    reviewCount: 42,
-  },
-};
-
-const mockSlotsData: Record<string, Slot[]> = {
-  'turf-1': [
-    { id: 'slot-1-1', turfId: 'turf-1', date: '2024-07-20', timeRange: '09:00 AM - 10:00 AM', status: 'available', createdAt: new Date() },
-    { id: 'slot-1-2', turfId: 'turf-1', date: '2024-07-20', timeRange: '10:00 AM - 11:00 AM', status: 'booked', createdAt: new Date() },
-    { id: 'slot-1-3', turfId: 'turf-1', date: '2024-07-20', timeRange: '06:00 PM - 07:00 PM', status: 'available', createdAt: new Date() },
-    { id: 'slot-1-4', turfId: 'turf-1', date: '2024-07-21', timeRange: '07:00 PM - 08:00 PM', status: 'maintenance', createdAt: new Date() },
-  ],
-  'featured-turf-id': [
-    { id: 'slot-f-1', turfId: 'featured-turf-id', date: '2024-07-22', timeRange: '05:00 PM - 06:00 PM', status: 'available', createdAt: new Date() },
-    { id: 'slot-f-2', turfId: 'featured-turf-id', date: '2024-07-22', timeRange: '06:00 PM - 07:00 PM', status: 'available', createdAt: new Date() },
-  ]
-};
-
-const mockReviewsData: Record<string, Review[]> = {
-  'turf-1': [
-    { id: 'review-1-1', turfId: 'turf-1', userId: 'player-1', userName: 'John Doe', rating: 5, comment: 'Amazing turf, well maintained!', createdAt: new Date(2024, 5, 10) },
-    { id: 'review-1-2', turfId: 'turf-1', userId: 'player-2', userName: 'Jane Smith', rating: 4, comment: 'Good facilities, but can get crowded.', createdAt: new Date(2024, 6, 1) },
-  ],
-   'featured-turf-id': [
-    { id: 'review-f-1', turfId: 'featured-turf-id', userId: 'player-3', userName: 'Alex Ray', rating: 5, comment: 'Best turf in the city, hands down!', createdAt: new Date(2024, 6, 15) },
-  ]
-};
+import { getTurfById as fetchTurfById, getSlotsForTurf as fetchSlotsForTurf, getReviewsForTurf as fetchReviewsForTurf, addBooking as addBookingToDB, addReviewForTurf as addReviewToDB } from '@/lib/mock-db';
 
 
 export default function TurfDetailPage() {
   const params = useParams();
   const turfId = params.turfId as string;
+  const { user } = useAuth();
   const [turf, setTurf] = useState<Turf | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     if (turfId) {
-      // Simulate fetching data
-      const currentTurf = mockTurfsData[turfId];
-      setTurf(currentTurf);
-      setSlots(mockSlotsData[turfId] || []);
-      setReviews(mockReviewsData[turfId] || []);
-      if (currentTurf && currentTurf.images.length > 0) {
-        setSelectedImage(currentTurf.images[0]);
+      setIsLoading(true);
+      try {
+        const currentTurf = fetchTurfById(turfId);
+        if (currentTurf) {
+          setTurf(currentTurf);
+          setSlots(fetchSlotsForTurf(turfId));
+          setReviews(fetchReviewsForTurf(turfId));
+          if (currentTurf.images && currentTurf.images.length > 0) {
+            setSelectedImage(currentTurf.images[0]);
+          }
+        } else {
+          toast({ title: "Error", description: "Turf not found.", variant: "destructive" });
+          // Consider redirecting: router.push('/player/turfs');
+        }
+      } catch (error) {
+          console.error("Error fetching turf details:", error);
+          toast({ title: "Error", description: "Could not load turf details.", variant: "destructive"});
+      } finally {
+        setIsLoading(false);
       }
     }
-  }, [turfId]);
+  }, [turfId, toast]);
 
   const handleBooking = (slot: Slot) => {
-    // Mock booking logic
-    console.log("Booking slot:", slot);
-    // Update slot status locally for demo
-    setSlots(prevSlots => prevSlots.map(s => s.id === slot.id ? {...s, status: 'booked'} : s));
-    toast({
-      title: "Slot Booked!",
-      description: `You've booked ${turf?.name} for ${slot.date} at ${slot.timeRange}.`,
-      variant: "default", // 'default' has better contrast with theme
-    });
+    if (!user) {
+      toast({ title: "Login Required", description: "Please login to book a slot.", variant: "default" });
+      return;
+    }
+    if (!turf) return;
+
+    const newBookingData: Omit<Booking, 'id' | 'createdAt'> = {
+        turfId: turf.id,
+        playerId: user.uid,
+        slotId: slot.id,
+        turfName: turf.name,
+        turfLocation: turf.location,
+        timeRange: slot.timeRange,
+        bookingDate: slot.date,
+        status: 'pending', // Or 'approved' if auto-approved
+        paymentStatus: 'unpaid', // Assume payment happens next
+        totalAmount: turf.pricePerHour,
+    };
+
+    try {
+        addBookingToDB(newBookingData);
+        // Update slot status locally for demo, or refetch slots
+        setSlots(prevSlots => prevSlots.map(s => s.id === slot.id ? {...s, status: 'booked', bookedBy: user.uid } : s));
+        toast({
+        title: "Slot Booked (Pending Confirmation)!",
+        description: `Your booking for ${turf.name} is pending. Check 'My Bookings'.`,
+        variant: "default",
+        });
+    } catch (error) {
+        console.error("Error creating booking:", error);
+        toast({ title: "Booking Failed", description: "Could not complete your booking.", variant: "destructive"});
+    }
   };
   
-  const handleReviewSubmitted = () => {
-    // Mock: refetch reviews or add to local state
-    const newReview: Review = {
-        id: `review-new-${Date.now()}`,
-        turfId: turfId,
-        userId: 'current-user-id', // from auth
-        userName: 'Current User', // from auth
-        rating: 5,
-        comment: 'This is a new test review!',
-        createdAt: new Date()
-    };
-    setReviews(prev => [newReview, ...prev]);
-    if (turf) {
-      setTurf(prevTurf => prevTurf ? ({...prevTurf, averageRating: ((prevTurf.averageRating || 0) * (prevTurf.reviewCount || 0) + newReview.rating) / ((prevTurf.reviewCount || 0) + 1), reviewCount: (prevTurf.reviewCount || 0) + 1 }) : null);
+  const handleReviewSubmitted = (rating: number, comment: string) => {
+    if (!user || !turf) {
+        toast({ title: "Error", description: "Cannot submit review.", variant: "destructive" });
+        return;
+    }
+    try {
+        const reviewPayload = { userId: user.uid, userName: user.name, rating, comment };
+        addReviewToDB(turf.id, reviewPayload);
+        // Refetch reviews and turf data to update average rating
+        setReviews(fetchReviewsForTurf(turf.id));
+        const updatedTurf = fetchTurfById(turf.id);
+        if(updatedTurf) setTurf(updatedTurf);
+
+        toast({ title: "Review Submitted", description: "Thanks for your feedback!", variant: "default"});
+    } catch (error) {
+        console.error("Error submitting review:", error);
+        toast({ title: "Review Failed", description: "Could not submit your review.", variant: "destructive"});
     }
   }
 
-  if (!turf) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <PageLoaderIcon className="h-8 w-8 animate-spin text-primary" />
         <p className="ml-2">Loading turf details...</p>
       </div>
     );
   }
+  
+  if (!turf) {
+    return (
+      <div className="text-center py-10">
+        <h2 className="text-xl font-semibold">Turf Not Found</h2>
+        <p className="text-muted-foreground">The turf you are looking for does not exist or is unavailable.</p>
+        <Link href="/player/turfs" className="mt-4 inline-block">
+          <Button>Back to Turfs</Button>
+        </Link>
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-8">
@@ -150,20 +149,20 @@ export default function TurfDetailPage() {
         <ChevronLeft className="h-4 w-4 mr-1" /> Back to Turfs
       </Link>
 
-      {/* Image Gallery */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2">
           <Image
-            src={selectedImage || turf.images[0] || "https://placehold.co/800x500.png"}
+            src={selectedImage || (turf.images && turf.images.length > 0 ? turf.images[0] : "https://placehold.co/800x500.png")}
             alt={turf.name}
             width={800}
             height={500}
             className="w-full h-auto max-h-[500px] object-cover rounded-lg shadow-md"
             data-ai-hint="sports field large"
+            unoptimized={selectedImage?.startsWith('blob:')}
           />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
-          {turf.images.slice(0, 4).map((imgUrl, index) => ( // Show up to 4 thumbnails
+          {turf.images && turf.images.slice(0, 4).map((imgUrl, index) => ( 
             <button key={index} onClick={() => setSelectedImage(imgUrl)} className="focus:outline-none focus:ring-2 focus:ring-primary rounded-md">
               <Image
                 src={imgUrl}
@@ -172,6 +171,7 @@ export default function TurfDetailPage() {
                 height={125}
                 className={`w-full h-24 object-cover rounded-md cursor-pointer transition-opacity ${selectedImage === imgUrl ? 'opacity-100 ring-2 ring-primary' : 'opacity-75 hover:opacity-100'}`}
                 data-ai-hint="turf detail"
+                 unoptimized={imgUrl.startsWith('blob:')}
               />
             </button>
           ))}
@@ -179,7 +179,6 @@ export default function TurfDetailPage() {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Turf Info & Booking */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-lg">
             <CardHeader>
@@ -208,7 +207,7 @@ export default function TurfDetailPage() {
             <CardContent>
               <div className="flex items-center space-x-2 mb-4">
                 <Badge variant="secondary" className="text-lg px-4 py-2">
-                  <RupeeIcon className="h-5 w-5 mr-1" /> {turf.pricePerHour} / hour
+                  <IndianRupee className="h-5 w-5 mr-1" /> {turf.pricePerHour} / hour
                 </Badge>
               </div>
               <p className="text-foreground/80 mb-4 whitespace-pre-line">{turf.description}</p>
@@ -231,7 +230,6 @@ export default function TurfDetailPage() {
               <CardDescription>Select a date and time to book this turf.</CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Simplified Slot Display & Booking */}
               {slots.length > 0 ? (
                 <div className="space-y-4">
                   {slots.map(slot => (
@@ -239,6 +237,9 @@ export default function TurfDetailPage() {
                       <div>
                         <p className="font-semibold"><CalendarDays className="inline h-4 w-4 mr-1" /> {slot.date}</p>
                         <p className="text-sm text-muted-foreground"><Clock className="inline h-4 w-4 mr-1" /> {slot.timeRange}</p>
+                         {slot.status === 'booked' && slot.bookedBy && (
+                            <p className="text-xs text-blue-600">Booked</p>
+                        )}
                       </div>
                       {slot.status === 'available' ? (
                         <Dialog>
@@ -259,7 +260,7 @@ export default function TurfDetailPage() {
                                 <Button variant="outline">Cancel</Button>
                               </DialogClose>
                               <DialogClose asChild>
-                                <Button onClick={() => handleBooking(slot)} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm & Pay</Button>
+                                <Button onClick={() => handleBooking(slot)} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm & Proceed</Button>
                               </DialogClose>
                             </DialogFooter>
                           </DialogContent>
@@ -279,7 +280,6 @@ export default function TurfDetailPage() {
           </Card>
         </div>
 
-        {/* Right Column: Reviews */}
         <div className="space-y-6">
           {reviews.length > 0 && (
              <AiReviewSummary turfId={turf.id} reviews={reviews} />
@@ -304,7 +304,7 @@ export default function TurfDetailPage() {
               <CardDescription>Share your experience with other players.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ReviewForm turfId={turf.id} onSubmitSuccess={handleReviewSubmitted} />
+              <ReviewForm turfId={turf.id} onSubmitReview={handleReviewSubmitted} />
             </CardContent>
           </Card>
         </div>
@@ -312,10 +312,3 @@ export default function TurfDetailPage() {
     </div>
   );
 }
-
-const Loader2 = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-  </svg>
-);
-

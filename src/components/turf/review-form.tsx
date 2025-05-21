@@ -1,3 +1,4 @@
+
 // src/components/turf/review-form.tsx
 "use client";
 
@@ -14,9 +15,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Star } from "lucide-react";
+import { Star, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,17 +24,20 @@ const reviewFormSchema = z.object({
   comment: z.string().min(10, "Comment must be at least 10 characters.").max(500, "Comment too long."),
 });
 
+type ReviewFormValues = z.infer<typeof reviewFormSchema>;
+
 interface ReviewFormProps {
   turfId: string;
-  onSubmitSuccess?: () => void;
+  onSubmitReview: (rating: number, comment: string) => void; // Changed to pass values
 }
 
-export function ReviewForm({ turfId, onSubmitSuccess }: ReviewFormProps) {
+export function ReviewForm({ turfId, onSubmitReview }: ReviewFormProps) {
   const [hoverRating, setHoverRating] = useState(0);
   const [currentRating, setCurrentRating] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<z.infer<typeof reviewFormSchema>>({
+  const form = useForm<ReviewFormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: {
       rating: 0,
@@ -43,17 +45,20 @@ export function ReviewForm({ turfId, onSubmitSuccess }: ReviewFormProps) {
     },
   });
 
-  function onSubmit(values: z.infer<typeof reviewFormSchema>) {
-    console.log("Review submitted for turfId:", turfId, values);
-    // Here you would typically call an API to save the review
-    // e.g., await saveReviewToFirestore(turfId, values);
-    toast({
-      title: "Review Submitted!",
-      description: "Thank you for your feedback.",
-    });
-    form.reset();
-    setCurrentRating(0);
-    if (onSubmitSuccess) onSubmitSuccess();
+  async function onSubmit(values: ReviewFormValues) {
+    setIsSubmitting(true);
+    try {
+      // onSubmitReview might be async if it involves API calls in a real app
+      await onSubmitReview(values.rating, values.comment);
+      // Toast is handled by parent page after successful submission
+      form.reset();
+      setCurrentRating(0); // Reset visual rating state
+    } catch (error) {
+      console.error("Error in review submission process:", error);
+      toast({ title: "Submission Error", description: "Could not submit review.", variant: "destructive"});
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -75,6 +80,7 @@ export function ReviewForm({ turfId, onSubmitSuccess }: ReviewFormProps) {
                       onMouseEnter={() => setHoverRating(star)}
                       onMouseLeave={() => setHoverRating(0)}
                       onClick={() => {
+                        if (isSubmitting) return;
                         field.onChange(star);
                         setCurrentRating(star);
                       }}
@@ -98,13 +104,17 @@ export function ReviewForm({ turfId, onSubmitSuccess }: ReviewFormProps) {
                   className="resize-none"
                   rows={4}
                   {...field}
+                  disabled={isSubmitting}
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">Submit Review</Button>
+        <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Submit Review
+        </Button>
       </form>
     </Form>
   );

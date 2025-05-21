@@ -1,3 +1,4 @@
+
 // src/app/(app)/player/turfs/page.tsx
 "use client";
 
@@ -6,7 +7,7 @@ import { TurfCard } from '@/components/turf/turf-card';
 import type { Turf } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search,SlidersHorizontal } from 'lucide-react';
+import { Search,SlidersHorizontal, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -18,100 +19,63 @@ import {
 } from "@/components/ui/sheet";
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { getVisibleTurfs as fetchVisibleTurfs } from '@/lib/mock-db';
+import { useToast } from '@/hooks/use-toast';
 
-
-// Mock data - replace with actual API call
-const mockTurfs: Turf[] = [
-  {
-    id: 'turf-1',
-    ownerId: 'owner-1',
-    name: 'Green Kick Arena',
-    location: 'Koramangala, Bangalore',
-    pricePerHour: 1200,
-    images: ['https://placehold.co/600x400.png?text=Green+Kick'],
-    amenities: ['parking', 'restroom', 'floodlights', 'wifi'],
-    description: 'State-of-the-art 5-a-side football turf with premium grass.',
-    isVisible: true,
-    createdAt: new Date(),
-    averageRating: 4.5,
-    reviewCount: 25,
-  },
-  {
-    id: 'turf-2',
-    ownerId: 'owner-2',
-    name: 'Victory Playfield',
-    location: 'Indiranagar, Bangalore',
-    pricePerHour: 1000,
-    images: ['https://placehold.co/600x400.png?text=Victory+Playfield'],
-    amenities: ['restroom', 'floodlights'],
-    description: 'Spacious cricket and football turf, perfect for corporate matches.',
-    isVisible: true,
-    createdAt: new Date(),
-    averageRating: 4.2,
-    reviewCount: 18,
-  },
-  {
-    id: 'turf-3',
-    ownerId: 'owner-1',
-    name: 'Net Masters Badminton',
-    location: 'HSR Layout, Bangalore',
-    pricePerHour: 500,
-    images: ['https://placehold.co/600x400.png?text=Net+Masters'],
-    amenities: ['parking', 'restroom', 'gym'],
-    description: 'Professional wooden badminton courts with excellent lighting.',
-    isVisible: true,
-    createdAt: new Date(),
-    averageRating: 4.8,
-    reviewCount: 32,
-  },
-  {
-    id: 'turf-4',
-    ownerId: 'owner-3',
-    name: 'Hidden Gem Community Field',
-    location: 'Whitefield, Bangalore',
-    pricePerHour: 800,
-    images: ['https://placehold.co/600x400.png?text=Hidden+Gem'],
-    amenities: ['parking'],
-    description: 'A quiet and well-maintained field for practice sessions.',
-    isVisible: false, // This one should not be visible initially
-    createdAt: new Date(),
-  },
-];
-
-const allAmenities = ["parking", "restroom", "floodlights", "wifi", "gym", "cafe"];
+const allAmenities = ["parking", "restroom", "floodlights", "wifi", "gym", "cafe", "showers", "firstaid", "water"];
 
 export default function TurfsPage() {
-  const [turfs, setTurfs] = useState<Turf[]>([]);
+  const [allVisibleTurfs, setAllVisibleTurfs] = useState<Turf[]>([]);
+  const [filteredTurfs, setFilteredTurfs] = useState<Turf[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('rating');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Simulate fetching turfs
-    const visibleTurfs = mockTurfs.filter(turf => turf.isVisible);
-    
-    let filtered = visibleTurfs.filter(turf => 
-      turf.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      turf.location.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    setIsLoading(true);
+    try {
+      const turfsFromDB = fetchVisibleTurfs();
+      setAllVisibleTurfs(turfsFromDB);
+    } catch (error) {
+      console.error("Error fetching turfs:", error);
+      toast({ title: "Error", description: "Could not load available turfs.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
+  useEffect(() => {
+    let currentTurfs = [...allVisibleTurfs];
+    
+    // Filter by search term
+    if (searchTerm) {
+      currentTurfs = currentTurfs.filter(turf => 
+        turf.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        turf.location.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filter by amenities
     if (selectedAmenities.length > 0) {
-      filtered = filtered.filter(turf => 
+      currentTurfs = currentTurfs.filter(turf => 
         selectedAmenities.every(sa => turf.amenities.includes(sa))
       );
     }
     
     // Sort
     if (sortBy === 'price_asc') {
-      filtered.sort((a, b) => a.pricePerHour - b.pricePerHour);
+      currentTurfs.sort((a, b) => a.pricePerHour - b.pricePerHour);
     } else if (sortBy === 'price_desc') {
-      filtered.sort((a, b) => b.pricePerHour - a.pricePerHour);
+      currentTurfs.sort((a, b) => b.pricePerHour - a.pricePerHour);
     } else if (sortBy === 'rating') {
-      filtered.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+      // Ensure averageRating is treated as 0 if undefined for sorting
+      currentTurfs.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
     }
 
-    setTurfs(filtered);
-  }, [searchTerm, sortBy, selectedAmenities]);
+    setFilteredTurfs(currentTurfs);
+  }, [searchTerm, sortBy, selectedAmenities, allVisibleTurfs]);
 
   const handleAmenityChange = (amenity: string) => {
     setSelectedAmenities(prev => 
@@ -120,6 +84,15 @@ export default function TurfsPage() {
         : [...prev, amenity]
     );
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Loading turfs...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -184,18 +157,18 @@ export default function TurfsPage() {
             </div>
           </SheetContent>
         </Sheet>
-
       </div>
 
-      {turfs.length === 0 && !searchTerm && selectedAmenities.length === 0 && (
-         <p className="text-center text-muted-foreground py-8">Loading available turfs...</p>
-      )}
-      {turfs.length === 0 && (searchTerm || selectedAmenities.length > 0) && (
-         <p className="text-center text-muted-foreground py-8">No turfs match your current filters. Try adjusting your search.</p>
+      {filteredTurfs.length === 0 && (
+         <p className="text-center text-muted-foreground py-8">
+           {searchTerm || selectedAmenities.length > 0 
+             ? "No turfs match your current filters. Try adjusting your search."
+             : "No turfs available at the moment. Please check back later."}
+         </p>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {turfs.map((turf) => (
+        {filteredTurfs.map((turf) => (
           <TurfCard key={turf.id} turf={turf} />
         ))}
       </div>

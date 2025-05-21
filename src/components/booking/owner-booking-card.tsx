@@ -1,9 +1,10 @@
+
 // src/components/booking/owner-booking-card.tsx
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Booking } from "@/types";
-import { CalendarDays, Clock, User as UserIcon, Tag, IndianRupee as RupeeIcon, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { CalendarDays, Clock, User as UserIcon, Tag, IndianRupee, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { format } from 'date-fns';
 import {
   AlertDialog,
@@ -16,17 +17,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { getMockPlayerName } from "@/lib/mock-db"; // Import new mock player name getter
 
 interface OwnerBookingCardProps {
   booking: Booking;
   onApprove?: (bookingId: string) => void;
   onReject?: (bookingId: string) => void;
-  onCancelByOwner?: (bookingId: string) => void; // If owner needs to cancel an approved booking
+  onCancelByOwner?: (bookingId: string) => void;
 }
-
-// Mock function to get player name - in real app, fetch from users collection
-const getPlayerName = (playerId: string) => `Player (...${playerId.slice(-4)})`;
-
 
 export function OwnerBookingCard({ booking, onApprove, onReject, onCancelByOwner }: OwnerBookingCardProps) {
   const getStatusVariant = (status: Booking['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -69,7 +67,7 @@ export function OwnerBookingCard({ booking, onApprove, onReject, onCancelByOwner
         <div className="flex items-center">
           <UserIcon className="h-4 w-4 mr-2 text-muted-foreground" />
           <span className="font-medium">Player:</span>
-          <span className="ml-2">{getPlayerName(booking.playerId)}</span>
+          <span className="ml-2">{getMockPlayerName(booking.playerId)}</span>
         </div>
         <div className="flex items-center">
           <CalendarDays className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -83,7 +81,7 @@ export function OwnerBookingCard({ booking, onApprove, onReject, onCancelByOwner
         </div>
         {booking.totalAmount && (
             <div className="flex items-center">
-                <RupeeIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+                <IndianRupee className="h-4 w-4 mr-2 text-muted-foreground" />
                 <span className="font-medium">Amount:</span>
                 <span className="ml-2">₹{booking.totalAmount.toLocaleString()}</span>
             </div>

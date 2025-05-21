@@ -1,10 +1,11 @@
+
 // src/app/(app)/owner/bookings/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
 import { OwnerBookingCard } from '@/components/booking/owner-booking-card';
 import type { Booking, Turf } from '@/types';
-import { useAuth } from '@/hooks/use-auth'; // Mock auth
+import { useAuth } from '@/hooks/use-auth';
 import { Loader2, CalendarX2, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,123 +16,86 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// Mock data - replace with actual API calls
-const mockAllBookings: Booking[] = [
-  {
-    id: 'booking-1',
-    turfId: 'turf-1', // Belongs to mock-owner-uid
-    playerId: 'player-A',
-    slotId: 'slot-1-1',
-    turfName: 'Green Kick Arena',
-    timeRange: '09:00 AM - 10:00 AM',
-    bookingDate: '2024-07-20',
-    status: 'approved',
-    paymentStatus: 'paid',
-    totalAmount: 1200,
-    createdAt: new Date(2024, 6, 10),
-  },
-  {
-    id: 'booking-p1',
-    turfId: 'turf-1', // Belongs to mock-owner-uid
-    playerId: 'player-B',
-    slotId: 'slot-1-p1',
-    turfName: 'Green Kick Arena',
-    timeRange: '06:00 PM - 07:00 PM',
-    bookingDate: '2024-07-21',
-    status: 'pending',
-    paymentStatus: 'unpaid',
-    totalAmount: 1200,
-    createdAt: new Date(2024, 6, 18),
-  },
-  {
-    id: 'booking-p2',
-    turfId: 'turf-3', // Belongs to mock-owner-uid
-    playerId: 'player-C',
-    slotId: 'slot-3-p2',
-    turfName: 'Net Masters Badminton',
-    timeRange: '07:00 PM - 08:00 PM',
-    bookingDate: '2024-07-23',
-    status: 'pending',
-    paymentStatus: 'unpaid',
-    totalAmount: 500,
-    createdAt: new Date(2024, 6, 19),
-  },
-  {
-    id: 'booking-c1',
-    turfId: 'turf-1',
-    playerId: 'player-D',
-    slotId: 'slot-1-c1',
-    turfName: 'Green Kick Arena',
-    timeRange: '11:00 AM - 12:00 PM',
-    bookingDate: '2024-07-25',
-    status: 'cancelled',
-    paymentStatus: 'unpaid',
-    totalAmount: 1200,
-    createdAt: new Date(2024, 6, 18),
-  },
-];
-
-const mockOwnerTurfs: Partial<Turf>[] = [
-    { id: 'turf-1', name: 'Green Kick Arena', ownerId: 'mock-owner-uid' },
-    { id: 'turf-3', name: 'Net Masters Badminton', ownerId: 'mock-owner-uid' },
-    // Add another turf not owned by mock-owner-uid for testing
-    { id: 'turf-x', name: 'Other Owner Turf', ownerId: 'other-owner-id' }, 
-];
-
-// Add a booking for turf-x to test filtering
-mockAllBookings.push({
-    id: 'booking-x1',
-    turfId: 'turf-x', 
-    playerId: 'player-E',
-    slotId: 'slot-x-1',
-    turfName: 'Other Owner Turf',
-    timeRange: '10:00 AM - 11:00 AM',
-    bookingDate: '2024-07-24',
-    status: 'approved',
-    paymentStatus: 'paid',
-    totalAmount: 900,
-    createdAt: new Date(2024, 6, 17),
-});
+import { getOwnerTurfs as fetchOwnerTurfs, getBookingsForOwnerTurfs as fetchOwnerBookings, updateBooking as updateBookingInDB } from '@/lib/mock-db';
 
 
 export default function OwnerBookingsPage() {
   const { user, loading: authLoading } = useAuth();
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
-  const [ownerTurfs, setOwnerTurfs] = useState<Partial<Turf>[]>([]);
+  const [ownerTurfs, setOwnerTurfs] = useState<Partial<Turf>[]>([]); // Partial for "All My Turfs" option
   const [selectedTurfId, setSelectedTurfId] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     if (!authLoading && user && user.role === 'owner') {
-      // Simulate fetching owner's turfs and then all bookings for those turfs
-      const turfs = mockOwnerTurfs.filter(t => t.ownerId === user.uid);
-      setOwnerTurfs([{ id: 'all', name: 'All My Turfs' }, ...turfs]);
-      
-      const turfIds = turfs.map(t => t.id);
-      const bookingsForOwner = mockAllBookings.filter(b => turfIds.includes(b.turfId))
-        .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime() || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setAllBookings(bookingsForOwner);
-      setIsLoading(false);
+      setIsLoading(true);
+      try {
+        const turfs = fetchOwnerTurfs(user.uid);
+        setOwnerTurfs([{ id: 'all', name: 'All My Turfs' }, ...turfs]);
+        
+        const turfIds = turfs.map(t => t.id);
+        const bookingsForOwner = fetchOwnerBookings(turfIds)
+          .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime() || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setAllBookings(bookingsForOwner);
+      } catch (error) {
+          console.error("Error fetching owner bookings/turfs:", error);
+          toast({ title: "Error", description: "Could not load bookings data.", variant: "destructive"});
+      } finally {
+        setIsLoading(false);
+      }
     } else if (!authLoading && (!user || user.role !== 'owner')) {
       setIsLoading(false);
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, toast]);
+
+  const updateLocalBookingState = (bookingId: string, updates: Partial<Booking>) => {
+    setAllBookings(prev => prev.map(b => b.id === bookingId ? { ...b, ...updates } : b));
+  };
 
   const handleApprove = (bookingId: string) => {
-    setAllBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'approved', paymentStatus: 'unpaid' } : b)); // Payment status might change based on flow
-    toast({ title: "Booking Approved", description: `Booking ${bookingId} is now approved.` });
+    try {
+        const updated = updateBookingInDB(bookingId, { status: 'approved', paymentStatus: 'unpaid' }); // Payment status might change based on flow
+        if (updated) {
+            updateLocalBookingState(bookingId, { status: 'approved', paymentStatus: 'unpaid' });
+            toast({ title: "Booking Approved", description: `Booking ${bookingId} is now approved.` });
+        } else {
+            toast({ title: "Error", description: "Failed to approve booking.", variant: "destructive" });
+        }
+    } catch (error) {
+        console.error("Error approving booking:", error);
+        toast({ title: "Error", description: "Could not approve booking.", variant: "destructive" });
+    }
   };
 
   const handleReject = (bookingId: string) => {
-    setAllBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled' } : b)); // Or a 'rejected' status
-    toast({ title: "Booking Rejected", description: `Booking ${bookingId} has been rejected.`, variant: "destructive" });
+     try {
+        const updated = updateBookingInDB(bookingId, { status: 'cancelled' }); // Or a 'rejected' status
+        if (updated) {
+            updateLocalBookingState(bookingId, { status: 'cancelled' });
+            toast({ title: "Booking Rejected", description: `Booking ${bookingId} has been rejected.`, variant: "destructive" });
+        } else {
+            toast({ title: "Error", description: "Failed to reject booking.", variant: "destructive" });
+        }
+    } catch (error) {
+        console.error("Error rejecting booking:", error);
+        toast({ title: "Error", description: "Could not reject booking.", variant: "destructive" });
+    }
   };
   
   const handleCancelByOwner = (bookingId: string) => {
-    setAllBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled' } : b));
-    toast({ title: "Booking Cancelled by Owner", description: `Booking ${bookingId} has been cancelled.`, variant: "destructive" });
+    try {
+        const updated = updateBookingInDB(bookingId, { status: 'cancelled' });
+        if (updated) {
+            updateLocalBookingState(bookingId, { status: 'cancelled' });
+            toast({ title: "Booking Cancelled by Owner", description: `Booking ${bookingId} has been cancelled.`, variant: "destructive" });
+        } else {
+            toast({ title: "Error", description: "Failed to cancel booking.", variant: "destructive" });
+        }
+    } catch (error) {
+        console.error("Error cancelling booking by owner:", error);
+        toast({ title: "Error", description: "Could not cancel booking.", variant: "destructive" });
+    }
   };
 
   const filteredBookings = selectedTurfId === "all"
@@ -142,7 +106,7 @@ export default function OwnerBookingsPage() {
     { value: 'all', label: 'All Bookings' },
     { value: 'pending', label: 'Pending' },
     { value: 'approved', label: 'Approved' },
-    { value: 'completed', label: 'Completed' },
+    { value: 'completed', label: 'Completed' }, // Assuming 'completed' status exists
     { value: 'cancelled', label: 'Cancelled' },
   ];
 
@@ -172,7 +136,7 @@ export default function OwnerBookingsPage() {
           <h1 className="text-3xl font-bold text-primary">Manage Bookings</h1>
           <p className="text-muted-foreground">Oversee all reservations for your turfs.</p>
         </div>
-        {ownerTurfs.length > 1 && ( // Only show filter if owner has multiple turfs (including "All")
+        {ownerTurfs.length > 1 && (
           <div className="flex items-center gap-2">
              <Filter className="h-5 w-5 text-muted-foreground" />
             <Select value={selectedTurfId} onValueChange={setSelectedTurfId}>
