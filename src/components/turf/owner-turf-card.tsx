@@ -1,7 +1,8 @@
+
 // src/components/turf/owner-turf-card.tsx
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Edit3, Settings2, Eye, EyeOff, IndianRupee as RupeeIcon } from "lucide-react";
+import { MapPin, Edit3, Settings2, Eye, EyeOff, IndianRupee, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -36,7 +37,7 @@ export function OwnerTurfCard({ turf, onVisibilityToggle }: OwnerTurfCardProps) 
         
         <div className="flex items-center space-x-2 mb-3">
           <Badge variant="secondary" className="flex items-center">
-            <RupeeIcon className="h-4 w-4 mr-1" /> {turf.pricePerHour}/hr
+            <IndianRupee className="h-4 w-4 mr-1" /> {turf.pricePerHour}/hr
           </Badge>
            <Badge variant={turf.isVisible ? "default" : "outline"} className="flex items-center">
             {turf.isVisible ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
@@ -45,7 +46,7 @@ export function OwnerTurfCard({ turf, onVisibilityToggle }: OwnerTurfCardProps) 
         </div>
         <p className="text-sm text-foreground/80 mb-3 line-clamp-2">{turf.description}</p>
       </CardContent>
-      <CardFooter className="p-4 pt-0 grid grid-cols-1 gap-2">
+      <CardFooter className="p-4 pt-0 grid grid-cols-1 gap-3">
         <div className="flex items-center space-x-2">
             <Switch 
                 id={`visibility-${turf.id}`} 
@@ -68,6 +69,11 @@ export function OwnerTurfCard({ turf, onVisibilityToggle }: OwnerTurfCardProps) 
                 </Button>
             </Link>
         </div>
+         <Link href={`/owner/turfs/${turf.id}/reviews`} className="w-full">
+            <Button variant="outline" className="w-full">
+                <MessageSquare className="h-4 w-4 mr-2" /> Manage Reviews
+            </Button>
+        </Link>
       </CardFooter>
     </Card>
   );

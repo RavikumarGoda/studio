@@ -59,4 +59,7 @@ export interface Review {
   rating: number; // 1-5
   comment: string;
   createdAt: Timestamp | Date;
+  ownerReply?: string;
+  ownerRepliedAt?: Timestamp | Date;
 }
+

@@ -83,10 +83,16 @@ export const updateSlotsForTurf = (turfId: string, updatedSlotsData: Slot[]): vo
 
 // Review operations
 export const getReviewsForTurf = (turfId: string): Review[] => {
-    return mockReviewsDB.filter(r => r.turfId === turfId).map(review => ({...review, createdAt: new Date(review.createdAt)}));
+    return mockReviewsDB.filter(r => r.turfId === turfId)
+                        .map(review => ({
+                            ...review, 
+                            createdAt: new Date(review.createdAt),
+                            ownerRepliedAt: review.ownerRepliedAt ? new Date(review.ownerRepliedAt) : undefined
+                        }))
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
-export const addReviewForTurf = (turfId: string, reviewData: Omit<Review, 'id' | 'turfId' | 'createdAt'>): Review => {
+export const addReviewForTurf = (turfId: string, reviewData: Omit<Review, 'id' | 'turfId' | 'createdAt' | 'ownerReply' | 'ownerRepliedAt'>): Review => {
     const newReview: Review = {
         ...reviewData,
         id: `review-${mockReviewIdCounter++}`,
@@ -104,6 +110,27 @@ export const addReviewForTurf = (turfId: string, reviewData: Omit<Review, 'id' |
     }
     return { ...newReview };
 }
+
+export const addReplyToReview = (reviewId: string, turfId: string, currentOwnerId: string, replyText: string): Review | undefined => {
+    const reviewIndex = mockReviewsDB.findIndex(r => r.id === reviewId && r.turfId === turfId);
+    if (reviewIndex === -1) return undefined;
+
+    const turf = mockTurfsDB.find(t => t.id === turfId);
+    if (!turf || turf.ownerId !== currentOwnerId) {
+        // Authorization failed or turf not found
+        return undefined; 
+    }
+
+    mockReviewsDB[reviewIndex].ownerReply = replyText;
+    mockReviewsDB[reviewIndex].ownerRepliedAt = new Date();
+    
+    return { 
+        ...mockReviewsDB[reviewIndex], 
+        createdAt: new Date(mockReviewsDB[reviewIndex].createdAt),
+        ownerRepliedAt: new Date(mockReviewsDB[reviewIndex].ownerRepliedAt!)
+    };
+};
+
 
 // Booking operations
 export const getBookingsForPlayer = (playerId: string): Booking[] => {
