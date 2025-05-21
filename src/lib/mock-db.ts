@@ -5,34 +5,35 @@ import type { Turf, Slot, Booking, Review } from '@/types';
 // Initial mock data for turfs
 // Consolidating mock data from various files here.
 let mockTurfsDB: Turf[] = [
-  {
-    id: 'turf-1',
-    ownerId: 'mock-owner-uid',
-    name: 'Green Kick Arena',
-    location: 'Koramangala, Bangalore',
-    pricePerHour: 1200,
-    images: ['https://placehold.co/600x400.png?text=Green+Kick+Arena', 'https://placehold.co/400x300.png?text=GK+Side', 'https://placehold.co/400x300.png?text=GK+Goal'],
-    amenities: ['parking', 'restroom', 'floodlights', 'wifi', 'cafe'],
-    description: 'State-of-the-art 5-a-side football turf with premium FIFA-certified artificial grass. Enjoy thrilling matches under bright floodlights.',
-    isVisible: true,
-    createdAt: new Date(2023, 10, 1),
-    averageRating: 4.5,
-    reviewCount: 25,
-  },
-  {
-    id: 'turf-2', // Was turf-3 in some places, standardizing ID
-    ownerId: 'mock-owner-uid',
-    name: 'Net Masters Badminton',
-    location: 'HSR Layout, Bangalore',
-    pricePerHour: 500,
-    images: ['https://placehold.co/600x400.png?text=Net+Masters'],
-    amenities: ['parking', 'restroom', 'gym'],
-    description: 'Professional wooden badminton courts with excellent lighting.',
-    isVisible: false,
-    createdAt: new Date(2023, 11, 15),
-    averageRating: 4.8,
-    reviewCount: 32,
-  },
+  // Turfs for 'mock-owner-uid' are removed to start fresh for the default owner.
+  // {
+  //   id: 'turf-1',
+  //   ownerId: 'mock-owner-uid',
+  //   name: 'Green Kick Arena',
+  //   location: 'Koramangala, Bangalore',
+  //   pricePerHour: 1200,
+  //   images: ['https://placehold.co/600x400.png?text=Green+Kick+Arena', 'https://placehold.co/400x300.png?text=GK+Side', 'https://placehold.co/400x300.png?text=GK+Goal'],
+  //   amenities: ['parking', 'restroom', 'floodlights', 'wifi', 'cafe'],
+  //   description: 'State-of-the-art 5-a-side football turf with premium FIFA-certified artificial grass. Enjoy thrilling matches under bright floodlights.',
+  //   isVisible: true,
+  //   createdAt: new Date(2023, 10, 1),
+  //   averageRating: 4.5,
+  //   reviewCount: 25,
+  // },
+  // {
+  //   id: 'turf-2', // Was turf-3 in some places, standardizing ID
+  //   ownerId: 'mock-owner-uid',
+  //   name: 'Net Masters Badminton',
+  //   location: 'HSR Layout, Bangalore',
+  //   pricePerHour: 500,
+  //   images: ['https://placehold.co/600x400.png?text=Net+Masters'],
+  //   amenities: ['parking', 'restroom', 'gym'],
+  //   description: 'Professional wooden badminton courts with excellent lighting.',
+  //   isVisible: false,
+  //   createdAt: new Date(2023, 11, 15),
+  //   averageRating: 4.8,
+  //   reviewCount: 32,
+  // },
   {
     id: 'turf-visible-player',
     ownerId: 'another-owner-uid', // Not mock-owner-uid
@@ -56,12 +57,12 @@ let mockTurfsDB: Turf[] = [
     images: ['https://placehold.co/600x400.png?text=Hidden+Gem'],
     amenities: ['parking'],
     description: 'A quiet and well-maintained field for practice sessions.',
-    isVisible: false, 
+    isVisible: false,
     createdAt: new Date(2023, 8, 20),
     averageRating: 4.0,
     reviewCount: 5,
   },
-   { 
+   {
     id: 'featured-turf-id',
     ownerId: 'owner-f',
     name: 'City Sports Arena',
@@ -111,7 +112,7 @@ export const addTurf = (turfData: Omit<Turf, 'id' | 'createdAt' | 'ownerId'>, ow
 export const updateTurf = (turfId: string, updates: Partial<Omit<Turf, 'id' | 'ownerId' | 'createdAt'>>): Turf | undefined => {
   const turfIndex = mockTurfsDB.findIndex(t => t.id === turfId);
   if (turfIndex === -1) return undefined;
-  
+
   mockTurfsDB[turfIndex] = { ...mockTurfsDB[turfIndex], ...updates, createdAt: new Date(mockTurfsDB[turfIndex].createdAt) };
   return { ...mockTurfsDB[turfIndex] };
 };
@@ -136,7 +137,7 @@ export const updateSlotsForTurf = (turfId: string, updatedSlotsData: Slot[]): vo
     mockSlotsDB.push(...updatedSlotsData.map(s => {
         const isNewOrTempSlot = s.id.startsWith('new-slot-') || s.id.startsWith('default-slot-');
         return {
-            ...s, 
+            ...s,
             turfId, // ensure turfId is set
             createdAt: s.createdAt ? new Date(s.createdAt) : new Date(), // ensure date object
             id: isNewOrTempSlot ? `slot-${turfId}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` : s.id // generate ID if new/temp
@@ -209,7 +210,7 @@ export const addBooking = (bookingData: Omit<Booking, 'id' | 'createdAt'>): Book
         createdAt: new Date(),
     };
     mockBookingsDB.push(newBooking);
-    
+
     const slot = mockSlotsDB.find(s => s.id === newBooking.slotId && s.turfId === newBooking.turfId);
     if (slot) {
         slot.status = 'booked';
