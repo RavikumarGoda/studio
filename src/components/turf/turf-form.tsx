@@ -27,7 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { UploadCloud, XCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useState, ChangeEvent, useEffect } from "react";
-import { cn } from "@/lib/utils"; // Added import
+import { cn } from "@/lib/utils";
 
 const turfFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -69,7 +69,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
   // State for all image previews (blob URLs for new files, existing URLs for old ones)
   const [imagePreviews, setImagePreviews] = useState<string[]>(initialData?.images || []);
   
-  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Renamed to avoid conflict
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   const form = useForm<TurfFormValues>({
@@ -80,12 +80,11 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
       pricePerHour: initialData?.pricePerHour || 0,
       description: initialData?.description || "",
       amenities: initialData?.amenities || [],
-      images: initialData?.images || [], // This will store the final URLs for the form
+      images: initialData?.images || [], 
       isVisible: initialData?.isVisible === undefined ? true : initialData.isVisible,
     },
   });
   
-  // Sync form's images field if initialData.images changes (e.g. after edit load)
   useEffect(() => {
     if (initialData?.images) {
       form.setValue("images", initialData.images);
@@ -107,13 +106,11 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
       const newLocalPreviews = filesArray.map(file => URL.createObjectURL(file));
       setImagePreviews(prev => [...prev, ...newLocalPreviews]);
       
-      // Store files for "upload" simulation
       setImageFilesToUpload(prev => [...prev, ...filesArray]);
 
-      // Simulate upload and get URLs
       const uploadedUrlsPromises = filesArray.map(async (file) => {
-        await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500)); // Simulate upload delay
-        return `https://placehold.co/600x400.png?text=${encodeURIComponent(file.name.substring(0,10))}`; // Mock URL
+        await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500)); 
+        return `https://placehold.co/600x400.png`; // Generic placeholder URL
       });
       
       const newUploadedUrls = await Promise.all(uploadedUrlsPromises);
@@ -121,51 +118,67 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
       const currentImageUrls = form.getValues("images");
       form.setValue("images", [...currentImageUrls, ...newUploadedUrls], { shouldValidate: true });
       
-      // Clear the file input so the same file can be selected again if removed and re-added
       event.target.value = ""; 
       setIsUploadingImages(false);
     }
   };
 
   const removeImage = (indexToRemove: number) => {
-    // Remove from previews
     const removedPreview = imagePreviews[indexToRemove];
     setImagePreviews(prev => prev.filter((_, i) => i !== indexToRemove));
 
-    // Remove from form's 'images' (URLs)
-    // If the removed preview was a blob URL, it means it was from imageFilesToUpload
-    // and its corresponding mock URL needs to be removed. Otherwise, it's an existing URL.
-    
     const currentUrls = form.getValues("images");
-    let urlToRemove = "";
+    let updatedUrls;
 
     if (removedPreview.startsWith('blob:')) {
-        // This is complex: we need to find which URL in `form.getValues("images")` corresponds to this blob.
-        // For this mock, we assume a simple mapping or might need a more robust way to track.
-        // A simpler mock: if it's a blob, we might need to find its "uploaded" URL.
-        // This part of the mock is imperfect without a real upload mapping.
-        // Let's assume for now it's an already "uploaded" URL if not a blob.
-        // One way: try to find a URL in currentUrls that was recently added if imageFilesToUpload had items.
+      // If it's a blob, it means it was a new file. We remove a corresponding
+      // generic placeholder URL from the form values. This assumes new placeholders
+      // were appended and order is maintained.
+      // This simple removal by index from `currentUrls` works if `imagePreviews` and `currentUrls`
+      // (for the newly added items) maintain their relative order.
+      updatedUrls = currentUrls.filter((_, i) => {
+        // This logic is tricky: we need to map the preview index to the URL index.
+        // Let's assume that if the removed preview was a blob, it corresponds to one of the
+        // *later* entries in `currentUrls` that is a generic placeholder.
+        // A more robust mock would track exact mappings, but for now, we remove by index.
+        // The original logic of removing by index from `currentUrls` is kept,
+        // as it's the simplest for this mock scenario.
+        return i !== indexToRemove; // This might not be perfectly accurate if initialData also had generic placeholders.
+      });
+      // A safer approach for blobs if order is exact:
+      // Count how many blob previews are *before* this one. Remove that many non-blob urls from the start of `currentUrls`,
+      // then remove the `n-th` generic placeholder. But let's stick to simpler index removal for now.
+      const nonBlobPreviewsCount = imagePreviews.filter(p => !p.startsWith('blob:')).length;
+      const blobIndexAmongBlobs = imagePreviews.slice(0, indexToRemove).filter(p => p.startsWith('blob:')).length;
+      
+      if (indexToRemove >= nonBlobPreviewsCount) { // It's a blob URL that was removed
+         // Find the corresponding generic URL to remove
+         // This assumes generic URLs from blobs are appended after existing URLs.
+         const urlIndexToRemoveInForm = nonBlobPreviewsCount + blobIndexAmongBlobs;
+         if (urlIndexToRemoveInForm < currentUrls.length) {
+            updatedUrls = currentUrls.filter((_, i) => i !== urlIndexToRemoveInForm);
+         } else {
+            updatedUrls = [...currentUrls]; // Should not happen if logic is correct
+         }
+      } else { // It's an existing HTTP URL that was removed
+         updatedUrls = currentUrls.filter(url => url !== removedPreview);
+      }
 
-        // For simplicity, if we remove a preview, we also remove its corresponding URL from the form.
-        // This requires knowing which URL corresponds to which preview.
-        // The easiest way is if form.setValue("images", imagePreviews.filter(...)) but previews can be blob or existing.
-        // So, we try to remove the URL at the same index. This assumes `images` and `previews` are somewhat synced
-        // with new URLs appended.
-         if (indexToRemove < currentUrls.length) { // defensive check
-            const updatedUrls = currentUrls.filter((_, i) => i !== indexToRemove);
-            form.setValue("images", updatedUrls, { shouldValidate: true });
-        }
-
-    } else { // It's an existing URL (e.g. from initialData or already "uploaded")
-        urlToRemove = removedPreview;
-        const updatedUrls = currentUrls.filter(url => url !== urlToRemove);
-        form.setValue("images", updatedUrls, { shouldValidate: true });
+    } else { 
+      // It's an existing HTTP URL (from initialData or previously "uploaded")
+      updatedUrls = currentUrls.filter(url => url !== removedPreview);
     }
+    form.setValue("images", updatedUrls, { shouldValidate: true });
     
-    // Also try to remove from imageFilesToUpload if it was a new file
-    // This requires tracking which preview corresponds to which file more accurately.
-    // For now, this part of the mock for `imageFilesToUpload` might not be perfectly synced with preview removal.
+    // Optionally, also remove from imageFilesToUpload if the removedPreview was a blob
+    // This requires mapping blob URLs back to files, which is complex if files are not stored with their blob URLs.
+    // For this mock, we'll primarily focus on updating `imagePreviews` and `form.getValues("images")`.
+    if (removedPreview.startsWith('blob:')) {
+        // Find the corresponding file in imageFilesToUpload and remove it.
+        // This requires a more robust mapping than is currently implemented.
+        // For now, we'll skip precise removal from imageFilesToUpload to avoid complexity,
+        // as it's mainly for the "upload" simulation.
+    }
   };
 
 
@@ -309,7 +322,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                 <FormField
                   control={form.control}
                   name="images"
-                  render={({ field }) => ( // field here is for the array of URLs
+                  render={({ field }) => ( 
                     <FormItem>
                       <FormLabel>Turf Images</FormLabel>
                       <FormControl>
@@ -357,8 +370,8 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                                 width={150}
                                 height={100}
                                 className="rounded-md object-cover w-full h-24"
-                                data-ai-hint="turf facility"
-                                unoptimized={previewUrl.startsWith('blob:')} // Important for blob URLs
+                                data-ai-hint="facility photo"
+                                unoptimized={previewUrl.startsWith('blob:')} 
                               />
                               <Button
                                 type="button"
