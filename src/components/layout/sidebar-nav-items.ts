@@ -14,12 +14,12 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   // Player Specific
-  {
-    title: 'Dashboard',
-    href: '/player/dashboard',
-    icon: LayoutDashboard,
-    roles: ['player'],
-  },
+  // {
+  //   title: 'Dashboard',
+  //   href: '/player/dashboard',
+  //   icon: LayoutDashboard,
+  //   roles: ['player'],
+  // },
   {
     title: 'Find Turfs',
     href: '/player/turfs',
