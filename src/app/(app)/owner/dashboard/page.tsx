@@ -8,19 +8,18 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ShieldCheck, PlusCircle, CalendarDays, BarChart3, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import type { Turf } from '@/types';
-import { getOwnerTurfs as fetchOwnerTurfsFromDB } from '@/lib/mock-db'; // Import the function
+import type { Turf, Booking } from '@/types';
+import { getOwnerTurfs as fetchOwnerTurfsFromDB, getBookingsForOwnerTurfs } from '@/lib/mock-db';
+import { isFuture, isSameMonth, parseISO } from 'date-fns';
 
 export default function OwnerDashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const [ownerTurfs, setOwnerTurfs] = useState<Turf[]>([]);
+  const [ownerBookings, setOwnerBookings] = useState<Booking[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
-  // Placeholder stats - these could be fetched as well
-  const stats = {
-    upcomingBookings: 5, 
-    totalRevenue: 12500,
-  };
+  const [upcomingBookingsCount, setUpcomingBookingsCount] = useState(0);
+  const [currentMonthRevenue, setCurrentMonthRevenue] = useState(0);
 
   useEffect(() => {
     if (!authLoading && user && user.role === 'owner') {
@@ -28,9 +27,16 @@ export default function OwnerDashboardPage() {
       try {
         const turfs = fetchOwnerTurfsFromDB(user.uid);
         setOwnerTurfs(turfs);
+
+        if (turfs.length > 0) {
+          const turfIds = turfs.map(t => t.id);
+          const bookings = getBookingsForOwnerTurfs(turfIds);
+          setOwnerBookings(bookings);
+        } else {
+          setOwnerBookings([]);
+        }
       } catch (error) {
-        console.error("Error fetching owner turfs for dashboard:", error);
-        // Potentially set an error state or toast
+        console.error("Error fetching owner data for dashboard:", error);
       } finally {
         setIsLoadingData(false);
       }
@@ -38,6 +44,27 @@ export default function OwnerDashboardPage() {
       setIsLoadingData(false);
     }
   }, [user, authLoading]);
+
+  useEffect(() => {
+    // Calculate upcoming bookings
+    const upcoming = ownerBookings.filter(booking =>
+      (booking.status === 'approved' || booking.status === 'pending') &&
+      isFuture(parseISO(booking.bookingDate))
+    ).length;
+    setUpcomingBookingsCount(upcoming);
+
+    // Calculate current month revenue
+    const now = new Date();
+    const revenue = ownerBookings
+      .filter(booking =>
+        (booking.status === 'approved' || booking.status === 'completed') &&
+        isSameMonth(parseISO(booking.bookingDate), now) &&
+        booking.totalAmount
+      )
+      .reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+    setCurrentMonthRevenue(revenue);
+
+  }, [ownerBookings]);
 
   if (authLoading || isLoadingData) {
     return (
@@ -49,7 +76,6 @@ export default function OwnerDashboardPage() {
   }
 
   if (!user) {
-    // This case should ideally be handled by layout redirecting to login
     return <div>Redirecting to login...</div>;
   }
 
@@ -75,19 +101,19 @@ export default function OwnerDashboardPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Upcoming Bookings</CardTitle>
-            <CardDescription>Bookings for the next 7 days.</CardDescription>
+            <CardDescription>Future approved/pending bookings.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold text-primary">{stats.upcomingBookings}</p>
+            <p className="text-4xl font-bold text-primary">{upcomingBookingsCount}</p>
           </CardContent>
         </Card>
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Monthly Revenue</CardTitle>
-            <CardDescription>Estimated earnings this month.</CardDescription>
+            <CardTitle>Current Month Revenue</CardTitle>
+            <CardDescription>Earnings from approved/completed bookings this month.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold text-primary">₹{stats.totalRevenue.toLocaleString()}</p>
+            <p className="text-4xl font-bold text-primary">₹{currentMonthRevenue.toLocaleString()}</p>
           </CardContent>
         </Card>
       </div>
