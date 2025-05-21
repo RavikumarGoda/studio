@@ -5,11 +5,39 @@ import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Search, ListChecks, Star } from 'lucide-react';
+import { Search, ListChecks, Star, ImageOff, Loader2 } from 'lucide-react';
 import Image from 'next/image';
+import { useState, useEffect } from 'react';
+import type { Turf } from '@/types';
+import { getVisibleTurfs } from '@/lib/mock-db';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PlayerDashboardPage() {
   const { user } = useAuth();
+  const [featuredTurf, setFeaturedTurf] = useState<Turf | null>(null);
+  const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    setIsLoadingFeatured(true);
+    try {
+      const visibleTurfs = getVisibleTurfs();
+      if (visibleTurfs.length > 0) {
+        // For simplicity, pick the first visible turf.
+        // In a real app, this could be random, highest rated, etc.
+        setFeaturedTurf(visibleTurfs[0]);
+      } else {
+        setFeaturedTurf(null);
+      }
+    } catch (error) {
+      console.error("Error fetching featured turf:", error);
+      toast({ title: "Error", description: "Could not load featured turf.", variant: "destructive" });
+      setFeaturedTurf(null);
+    } finally {
+      setIsLoadingFeatured(false);
+    }
+  }, [toast]);
+
 
   if (!user) {
     return <div>Loading user data...</div>; // Or a redirect
@@ -76,21 +104,35 @@ export default function PlayerDashboardPage() {
           <CardTitle>Featured Turf</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col md:flex-row gap-4 items-center">
-          <Image 
-            src="https://placehold.co/600x300.png" 
-            alt="Featured Turf" 
-            width={300} 
-            height={150} 
-            className="rounded-md object-cover"
-            data-ai-hint="soccer field"
-          />
-          <div>
-            <h3 className="text-xl font-semibold">City Sports Arena</h3>
-            <p className="text-muted-foreground mb-2">The best 5-a-side turf in downtown. Floodlights, parking, and more!</p>
-            <Link href="/player/turfs/featured-turf-id"> {/* Replace with actual ID */}
-              <Button variant="link" className="p-0 text-primary">View Details &rarr;</Button>
-            </Link>
-          </div>
+          {isLoadingFeatured ? (
+            <div className="flex items-center justify-center w-full h-[150px] md:w-[300px]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : featuredTurf ? (
+            <>
+              <Image 
+                src={featuredTurf.images[0] || "https://placehold.co/600x300.png"} 
+                alt={featuredTurf.name} 
+                width={300} 
+                height={150} 
+                className="rounded-md object-cover"
+                data-ai-hint="sports field" // Generic hint, could be improved with turf-specific data
+              />
+              <div>
+                <h3 className="text-xl font-semibold">{featuredTurf.name}</h3>
+                <p className="text-muted-foreground mb-2 line-clamp-2">{featuredTurf.description}</p>
+                <Link href={`/player/turfs/${featuredTurf.id}`}>
+                  <Button variant="link" className="p-0 text-primary">View Details &rarr;</Button>
+                </Link>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center py-8 w-full">
+              <ImageOff className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-semibold text-foreground mb-1">No Turfs to Feature Yet</h3>
+              <p className="text-muted-foreground">Check back later or encourage owners to list their turfs!</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
