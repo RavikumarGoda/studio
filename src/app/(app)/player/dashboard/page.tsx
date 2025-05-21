@@ -50,7 +50,7 @@ export default function PlayerDashboardPage() {
         <p className="text-muted-foreground mt-1">Ready to hit the field? Let&apos;s find your next game.</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2"> {/* Updated grid-cols to 2 for better layout */}
         <Card className="shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -81,22 +81,6 @@ export default function PlayerDashboardPage() {
           </CardContent>
         </Card>
         
-        <Card className="shadow-lg hover:shadow-xl transition-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Star className="h-6 w-6 text-accent" />
-              Review Turfs
-            </CardTitle>
-            <CardDescription>Share your experience and help other players make informed decisions.</CardDescription>
-          </CardHeader>
-          <CardContent>
-             {/* This could link to the last viewed turf or a general review page */}
-            <p className="text-sm text-muted-foreground mb-2">Recently played? Leave a review!</p>
-            <Link href="/player/turfs" passHref>
-                <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent/10">Find Turfs to Review</Button>
-            </Link>
-          </CardContent>
-        </Card>
       </div>
 
       <Card className="shadow-lg">
