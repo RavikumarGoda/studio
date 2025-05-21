@@ -39,14 +39,14 @@ export const getOwnerTurfs = (ownerId: string): Turf[] => {
   return mockTurfsDB.filter(t => t.ownerId === ownerId).map(turf => ({ ...turf, createdAt: new Date(turf.createdAt) }));
 };
 
-export const addTurf = (turfData: Omit<Turf, 'id' | 'createdAt' | 'ownerId'>, ownerId: string): Turf => {
+export const addTurf = (turfData: Omit<Turf, 'id' | 'createdAt' | 'ownerId' | 'averageRating' | 'reviewCount'>, ownerId: string): Turf => {
   const newTurf: Turf = {
     ...turfData,
     id: `turf-${mockTurfIdCounter++}`,
     ownerId: ownerId,
     createdAt: new Date(),
-    averageRating: turfData.averageRating === undefined ? 0 : turfData.averageRating,
-    reviewCount: turfData.reviewCount === undefined ? 0 : turfData.reviewCount,
+    averageRating: 0, // Initial average rating
+    reviewCount: 0,   // Initial review count
     ownerPhoneNumber: turfData.ownerPhoneNumber || undefined,
   };
   mockTurfsDB.push(newTurf);
@@ -117,7 +117,6 @@ export const addReplyToReview = (reviewId: string, turfId: string, currentOwnerI
 
     const turf = mockTurfsDB.find(t => t.id === turfId);
     if (!turf || turf.ownerId !== currentOwnerId) {
-        // Authorization failed or turf not found
         return undefined; 
     }
 
@@ -150,26 +149,48 @@ export const updateBooking = (bookingId: string, updates: Partial<Omit<Booking, 
 }
 
 export const addBooking = (bookingData: Omit<Booking, 'id' | 'createdAt'>): Booking => {
-    const newBooking: Booking = {
+    const newBookingRequest: Booking = {
         ...bookingData,
         id: `booking-${mockBookingIdCounter++}`,
         createdAt: new Date(),
     };
-    mockBookingsDB.push(newBooking);
+    
 
-    const slot = mockSlotsDB.find(s => s.id === newBooking.slotId && s.turfId === newBooking.turfId);
-    if (slot) {
-        slot.status = 'booked';
-        slot.bookedBy = newBooking.playerId;
+    let slotIndex = mockSlotsDB.findIndex(s => s.id === newBookingRequest.slotId && s.turfId === newBookingRequest.turfId);
+    
+    if (slotIndex > -1) { // Slot exists in DB
+        if (mockSlotsDB[slotIndex].status === 'available') {
+            mockSlotsDB[slotIndex].status = 'booked';
+            mockSlotsDB[slotIndex].bookedBy = newBookingRequest.playerId;
+        } else {
+            // This case should ideally be prevented by UI, but good to handle
+            throw new Error(`Slot ${newBookingRequest.slotId} is not available.`);
+        }
+    } else { // Slot was a default generated slot from player view, does not exist in DB yet
+        const persistentSlotId = `slot-${newBookingRequest.turfId}-${mockSlotIdCounter++}`;
+        const newSlotForDB: Slot = {
+            id: persistentSlotId, 
+            turfId: newBookingRequest.turfId,
+            date: newBookingRequest.bookingDate,
+            timeRange: newBookingRequest.timeRange,
+            status: 'booked', // Mark as booked since it's being created due to a booking
+            bookedBy: newBookingRequest.playerId,
+            createdAt: new Date(),
+        };
+        mockSlotsDB.push(newSlotForDB);
+        newBookingRequest.slotId = persistentSlotId; // Update booking to use the new persistent slot ID
     }
-    return { ...newBooking };
+    
+    mockBookingsDB.push(newBookingRequest);
+    // Return a copy of the booking as it is in the DB (with potentially updated slotId)
+    const finalBooking = mockBookingsDB.find(b => b.id === newBookingRequest.id);
+    return { ...(finalBooking || newBookingRequest) };
 }
 
-// Helper to get player name
+
 export const getMockPlayerName = (playerId: string) => {
     if (playerId === 'mock-player-uid') return 'Player User';
     if (playerId === 'mock-owner-uid') return 'Owner User';
-    // Example of a simple way to make other IDs somewhat readable
     const playerSpecificPart = playerId.replace('mock-player-', '').substring(0, 5);
     return `Player ${playerSpecificPart}`;
 };
@@ -180,12 +201,10 @@ export const getAllMockBookings = () => mockBookingsDB;
 export const getAllMockReviews = () => mockReviewsDB;
 
 export const initializeMockData = () => {
-    // Reset all data arrays to empty
     mockTurfsDB = [];
     mockSlotsDB = [];
     mockReviewsDB = [];
     mockBookingsDB = [];
-    // Reset counters
     mockTurfIdCounter = 1;
     mockSlotIdCounter = 1;
     mockReviewIdCounter = 1;
@@ -193,5 +212,4 @@ export const initializeMockData = () => {
     console.log("Mock DB re-initialized and wiped clean.");
 };
 
-// Initialize with empty data when this module is first loaded
 initializeMockData();

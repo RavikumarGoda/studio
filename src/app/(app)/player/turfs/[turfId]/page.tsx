@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, parseISO, isEqual, startOfDay } from 'date-fns'; // Removed isFuture
+import { format, parseISO, isEqual, startOfDay } from 'date-fns';
 import { cn } from "@/lib/utils";
 
 import {
@@ -43,23 +43,51 @@ function timeStringToMinutes(timeStr: string): number {
   return hours * 60 + minutes;
 }
 
+// Helper to generate default slots for player view
+function generateDefaultSlotsForPlayerView(date: string, turfId: string): Slot[] {
+    const defaults: Slot[] = [];
+    const startHour = 7; // 7 AM
+    const endLoopHour = 23;  // Loop until 23 for slot 11:00 PM - 12:00 AM
+
+    function formatHourForTimeRange(hour: number): string { // Local helper
+        const ampm = hour >= 12 && hour < 24 ? 'PM' : 'AM';
+        let h = hour % 12;
+        if (h === 0) h = 12; // For 12 AM (midnight) and 12 PM (noon)
+        return `${String(h).padStart(2, '0')}:00 ${ampm}`;
+    }
+
+    for (let i = startHour; i <= endLoopHour; i++) {
+        const startTime = formatHourForTimeRange(i);
+        const endTime = formatHourForTimeRange(i + 1);
+        const timeRange = `${startTime} - ${endTime}`;
+        defaults.push({
+            id: `player-default-slot-${date}-${i}-${Math.random().toString(16).slice(2)}`, // Temporary unique ID for UI
+            turfId: turfId,
+            date: date,
+            timeRange: timeRange,
+            status: 'available',
+            createdAt: new Date(), // Not critical for temp UI slots
+        });
+    }
+    return defaults; // Already sorted by generation logic
+}
+
 
 export default function TurfDetailPage() {
   const params = useParams();
   const [resolvedTurfId, setResolvedTurfId] = useState<string | null>(null);
   const { user } = useAuth();
   const [turf, setTurf] = useState<Turf | null>(null);
-  const [allSlots, setAllSlots] = useState<Slot[]>([]); // All slots for the turf
+  const [allSlots, setAllSlots] = useState<Slot[]>([]); // All slots for the turf from DB
   const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasUserReviewed, setHasUserReviewed] = useState(false);
   const { toast } = useToast();
 
-  // New state for redesigned slot booking
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>(new Date());
   const [slotsForSelectedDate, setSlotsForSelectedDate] = useState<Slot[]>([]);
-  const [pendingBookingSlots, setPendingBookingSlots] = useState<Slot[]>([]); // Slots selected by user for booking
+  const [pendingBookingSlots, setPendingBookingSlots] = useState<Slot[]>([]); 
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -76,13 +104,7 @@ export default function TurfDetailPage() {
         const currentTurf = fetchTurfById(resolvedTurfId);
         if (currentTurf) {
           setTurf(currentTurf);
-          const fetchedSlots = fetchSlotsForTurf(resolvedTurfId).sort((a,b) => {
-            const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-            if (dateComparison !== 0) return dateComparison;
-            const startTimeA = a.timeRange.split(' - ')[0];
-            const startTimeB = b.timeRange.split(' - ')[0];
-            return timeStringToMinutes(startTimeA) - timeStringToMinutes(startTimeB);
-          });
+          const fetchedSlots = fetchSlotsForTurf(resolvedTurfId); // Already sorted by mock-db or should be
           setAllSlots(fetchedSlots);
           
           const fetchedReviews = fetchReviewsForTurf(resolvedTurfId);
@@ -108,22 +130,28 @@ export default function TurfDetailPage() {
     }
   }, [resolvedTurfId, toast, user]);
 
-  // Effect to filter slots when selectedCalendarDate or allSlots changes
+  // Effect to filter/generate slots when selectedCalendarDate or allSlots (from DB) changes
   useEffect(() => {
-    if (selectedCalendarDate) {
+    if (selectedCalendarDate && resolvedTurfId) {
       const dateStr = format(selectedCalendarDate, 'yyyy-MM-dd');
-      const filtered = allSlots.filter(slot => slot.date === dateStr).sort((a,b) => {
-        const startTimeA = a.timeRange.split(' - ')[0];
-        const startTimeB = b.timeRange.split(' - ')[0];
-        return timeStringToMinutes(startTimeA) - timeStringToMinutes(startTimeB);
-      });
-      setSlotsForSelectedDate(filtered);
-      setPendingBookingSlots([]); // Clear pending bookings when date changes
+      
+      const dbSlotsForDate = allSlots
+        .filter(slot => slot.date === dateStr)
+        .sort((a,b) => timeStringToMinutes(a.timeRange.split(' - ')[0]) - timeStringToMinutes(b.timeRange.split(' - ')[0]));
+
+      if (dbSlotsForDate.length > 0) {
+          setSlotsForSelectedDate(dbSlotsForDate);
+      } else {
+          // No slots in DB for this date, generate default 'available' slots for player view
+          const defaultGeneratedSlots = generateDefaultSlotsForPlayerView(dateStr, resolvedTurfId);
+          setSlotsForSelectedDate(defaultGeneratedSlots);
+      }
+      setPendingBookingSlots([]); 
     } else {
       setSlotsForSelectedDate([]);
       setPendingBookingSlots([]);
     }
-  }, [selectedCalendarDate, allSlots]);
+  }, [selectedCalendarDate, allSlots, resolvedTurfId]);
 
 
   const handleSlotSelection = (slot: Slot) => {
@@ -134,13 +162,10 @@ export default function TurfDetailPage() {
       if (isAlreadySelected) {
         return prev.filter(s => s.id !== slot.id);
       } else {
-        // Sort the newly added slot into the array to maintain chronological order
         const newPendingSlots = [...prev, slot];
-        return newPendingSlots.sort((a, b) => {
-            const startTimeA = a.timeRange.split(' - ')[0];
-            const startTimeB = b.timeRange.split(' - ')[0];
-            return timeStringToMinutes(startTimeA) - timeStringToMinutes(startTimeB);
-        });
+        return newPendingSlots.sort((a, b) => 
+            timeStringToMinutes(a.timeRange.split(' - ')[0]) - timeStringToMinutes(b.timeRange.split(' - ')[0])
+        );
       }
     });
   };
@@ -154,37 +179,58 @@ export default function TurfDetailPage() {
 
     let bookingsMadeCount = 0;
     let bookingFailed = false;
-    const newAllSlots = [...allSlots]; // Create a mutable copy
+    const mutableAllSlots = [...allSlots]; // Create a mutable copy of current DB slots
+    const successfullyBookedSlotDetails: {tempId: string, persistentId: string, timeRange: string, date: string}[] = [];
 
-    for (const slot of pendingBookingSlots) {
+
+    for (const slotToBook of pendingBookingSlots) { // slotToBook.id here is temporary if it's a default generated one
       const newBookingData: Omit<Booking, 'id' | 'createdAt'> = {
-          turfId: turf.id, // Use turf.id which is confirmed to exist
+          turfId: turf.id,
           playerId: user.uid,
-          slotId: slot.id,
+          slotId: slotToBook.id, // This temporary ID is passed to addBookingToDB
           turfName: turf.name,
           turfLocation: turf.location,
-          timeRange: slot.timeRange,
-          bookingDate: slot.date,
+          timeRange: slotToBook.timeRange,
+          bookingDate: slotToBook.date,
           status: 'pending',
           paymentStatus: 'unpaid',
           totalAmount: turf.pricePerHour,
       };
       try {
-          addBookingToDB(newBookingData);
-          // Update slot status in the mutable copy of allSlots
-          const slotIndex = newAllSlots.findIndex(s => s.id === slot.id);
-          if (slotIndex > -1) {
-            newAllSlots[slotIndex] = { ...newAllSlots[slotIndex], status: 'booked', bookedBy: user.uid };
-          }
+          const confirmedBooking = addBookingToDB(newBookingData); // This returns booking with persistent slotId
+          successfullyBookedSlotDetails.push({
+            tempId: slotToBook.id,
+            persistentId: confirmedBooking.slotId,
+            timeRange: slotToBook.timeRange,
+            date: slotToBook.date
+          });
           bookingsMadeCount++;
       } catch (error) {
           bookingFailed = true;
-          console.error(`Error creating booking for slot ${slot.id}:`, error);
-          toast({ title: "Booking Failed", description: `Could not book slot ${slot.timeRange}.`, variant: "destructive"});
+          console.error(`Error creating booking for slot ${slotToBook.id}:`, error);
+          toast({ title: "Booking Failed", description: `Could not book slot ${slotToBook.timeRange}.`, variant: "destructive"});
       }
     }
     
-    setAllSlots(newAllSlots); // Update the main slots state once after all operations
+    // Update local UI state (mutableAllSlots) to reflect bookings
+    successfullyBookedSlotDetails.forEach(bookedDetail => {
+        let slotIndex = mutableAllSlots.findIndex(s => s.id === bookedDetail.persistentId); // Check against persistent ID first
+        if (slotIndex > -1) { // Slot existed in DB, update it
+            mutableAllSlots[slotIndex] = { ...mutableAllSlots[slotIndex], status: 'booked', bookedBy: user.uid };
+        } else { // Slot was a default, wasn't in original `allSlots`, add it now that it's in DB
+            mutableAllSlots.push({
+                id: bookedDetail.persistentId,
+                turfId: turf.id,
+                date: bookedDetail.date,
+                timeRange: bookedDetail.timeRange,
+                status: 'booked',
+                bookedBy: user.uid,
+                createdAt: new Date() 
+            });
+        }
+    });
+
+    setAllSlots(mutableAllSlots); // Update the main slots state with changes
 
     if (bookingsMadeCount > 0 && !bookingFailed) {
       toast({
@@ -196,7 +242,7 @@ export default function TurfDetailPage() {
         toast({
         title: `Partial Booking (${bookingsMadeCount} slot${bookingsMadeCount > 1 ? 's' : ''})`,
         description: `Some slots were booked. Others failed. Check 'My Bookings'.`,
-        variant: "default", // or "warning" if you add such a variant
+        variant: "default",
       });
     }
 
@@ -215,7 +261,7 @@ export default function TurfDetailPage() {
     }
     try {
         const reviewPayload = { userId: user.uid, userName: user.name, rating, comment };
-        addReviewToDB(turf.id, reviewPayload); // Use turf.id which is confirmed
+        addReviewToDB(turf.id, reviewPayload); 
         const updatedReviews = fetchReviewsForTurf(turf.id);
         setReviews(updatedReviews);
         setHasUserReviewed(true);
@@ -229,7 +275,7 @@ export default function TurfDetailPage() {
     }
   }
 
-  if (!resolvedTurfId && !isLoading) { // If turfId hasn't resolved yet and we are not in initial load due to turfId
+  if (!resolvedTurfId && !isLoading) { 
     return (
       <div className="flex items-center justify-center h-64">
         <PageLoaderIcon className="h-8 w-8 animate-spin text-primary" />
@@ -343,7 +389,6 @@ export default function TurfDetailPage() {
             </CardContent>
           </Card>
 
-          {/* New Slot Booking UI */}
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-2xl">Book Your Slots</CardTitle>
@@ -371,7 +416,6 @@ export default function TurfDetailPage() {
                       mode="single"
                       selected={selectedCalendarDate}
                       onSelect={setSelectedCalendarDate}
-                      // removed disabled prop to allow selection of any date
                       initialFocus
                     />
                   </PopoverContent>
@@ -406,7 +450,7 @@ export default function TurfDetailPage() {
                       })}
                     </div>
                   ) : (
-                    <p className="text-muted-foreground text-center py-4">No slots available for this date. Please try another date.</p>
+                    <p className="text-muted-foreground text-center py-4">No slots configured or available for this date. Please try another date.</p>
                   )}
                 </div>
               )}
@@ -438,8 +482,6 @@ export default function TurfDetailPage() {
                       onClick={() => {
                         if (!user) {
                             toast({title: "Login Required", description: "Please log in to confirm your booking.", variant: "default"});
-                            // Optionally, you could redirect to login here if resolvedTurfId is available:
-                            // if (resolvedTurfId) router.push(`/login?redirect=/player/turfs/${resolvedTurfId}`);
                             return;
                         }
                         setIsBookingDialogOpen(true);
@@ -461,7 +503,6 @@ export default function TurfDetailPage() {
                 )}
             </CardContent>
           </Card>
-          {/* End New Slot Booking UI */}
         </div>
 
         <div className="space-y-6">
@@ -518,7 +559,7 @@ export default function TurfDetailPage() {
                     <p className="text-foreground">Thanks for your feedback!</p>
                     <p className="text-sm text-muted-foreground">You have already reviewed this turf.</p>
                 </div>
-              ) : resolvedTurfId ? ( // Ensure resolvedTurfId is available for ReviewForm
+              ) : resolvedTurfId ? ( 
                 <ReviewForm turfId={resolvedTurfId} onSubmitReview={handleReviewSubmitted} />
               ) : (
                 <p className="text-muted-foreground">Loading review form...</p>
@@ -528,7 +569,6 @@ export default function TurfDetailPage() {
         </div>
       </div>
 
-      {/* Dialog for Confirming Multiple Bookings */}
       <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
         <DialogContent>
           <DialogHeader>
