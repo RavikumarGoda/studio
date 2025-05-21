@@ -1,9 +1,11 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation'; // Import useSearchParams
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +18,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/hooks/use-auth"; // Mock auth hook
+import { useAuth } from "@/hooks/use-auth"; 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
@@ -32,6 +34,8 @@ const formSchema = z.object({
 export function LoginForm() {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const searchParams = useSearchParams(); // Get searchParams
+  const redirectUrl = searchParams.get('redirect'); // Get redirect URL
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,7 +50,7 @@ export function LoginForm() {
     setIsLoading(true);
     // Simulate API call
     setTimeout(() => {
-      login(values.email, values.role); // Use mock login
+      login(values.email, values.role, redirectUrl || undefined); // Pass redirectUrl
       setIsLoading(false);
     }, 1000);
   }

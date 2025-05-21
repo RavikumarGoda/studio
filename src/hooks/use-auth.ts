@@ -1,3 +1,4 @@
+
 // src/hooks/use-auth.ts
 "use client";
 
@@ -26,7 +27,7 @@ export const useAuth = () => {
     setLoading(false);
   }, []);
 
-  const login = useCallback((email: string, role: 'owner' | 'player') => {
+  const login = useCallback((email: string, role: 'owner' | 'player', redirectUrl?: string) => {
     const mockUserData: User = {
       uid: role === 'owner' ? 'mock-owner-uid' : 'mock-player-uid',
       name: role === 'owner' ? 'Owner User' : 'Player User',
@@ -36,10 +37,14 @@ export const useAuth = () => {
     };
     localStorage.setItem('mockUser', JSON.stringify(mockUserData));
     setUser(mockUserData);
-    router.push(role === 'owner' ? '/owner/dashboard' : '/player/dashboard');
+    if (redirectUrl) {
+      router.push(redirectUrl);
+    } else {
+      router.push(role === 'owner' ? '/owner/dashboard' : '/player/dashboard');
+    }
   }, [router]);
 
-  const signup = useCallback((name: string, email: string, role: 'owner' | 'player') => {
+  const signup = useCallback((name: string, email: string, role: 'owner' | 'player', redirectUrl?: string) => {
     // In a real app, this would call Firebase signup
     // For mock, it's the same as login
     const mockUserData: User = {
@@ -51,7 +56,11 @@ export const useAuth = () => {
     };
     localStorage.setItem('mockUser', JSON.stringify(mockUserData));
     setUser(mockUserData);
-    router.push(role === 'owner' ? '/owner/dashboard' : '/player/dashboard');
+    if (redirectUrl) {
+      router.push(redirectUrl);
+    } else {
+      router.push(role === 'owner' ? '/owner/dashboard' : '/player/dashboard');
+    }
   }, [router]);
 
   const logout = useCallback(() => {
