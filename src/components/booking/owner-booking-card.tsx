@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Booking } from "@/types";
-import { CalendarDays, Clock, User as UserIcon, Tag, रुपया as RupeeIcon, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { CalendarDays, Clock, User as UserIcon, Tag, IndianRupee as RupeeIcon, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { format } from 'date-fns';
 import {
   AlertDialog,

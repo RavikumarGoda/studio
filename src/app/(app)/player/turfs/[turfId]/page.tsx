@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { MapPin, रुपया as RupeeIcon, Star, Clock, CalendarDays, Users, ParkingCircle, ShowerHead, Lightbulb,ChevronLeft } from 'lucide-react';
+import { MapPin, IndianRupee as RupeeIcon, Star, Clock, CalendarDays, Users, ParkingCircle, ShowerHead, Lightbulb,ChevronLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

@@ -1,7 +1,7 @@
 // src/components/turf/owner-turf-card.tsx
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Edit3, Settings2, Eye, EyeOff, रुपया as RupeeIcon } from "lucide-react";
+import { MapPin, Edit3, Settings2, Eye, EyeOff, IndianRupee as RupeeIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
