@@ -2,7 +2,7 @@
 // src/components/turf/slot-manager.tsx
 "use client";
 
-import { useState, useEffect, ChangeEvent, KeyboardEvent } from 'react'; // Added KeyboardEvent
+import { useState, useEffect, ChangeEvent, KeyboardEvent } from 'react';
 import type { Slot, Turf } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -109,7 +109,10 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
 
     if (!selectedDateHasInitialSlots) {
         const defaultGeneratedSlots = generateDefaultSlots(selectedDate, turf.id);
-        processedSlots = [...processedSlots, ...defaultGeneratedSlots];
+        // Combine default slots with existing slots, ensuring no turfId mismatch if initialSlots is empty
+        processedSlots = defaultGeneratedSlots.every(ds => ds.turfId === turf.id) 
+            ? [...processedSlots, ...defaultGeneratedSlots]
+            : defaultGeneratedSlots; // If initialSlots was empty, just use defaults
     }
 
     processedSlots.sort((a, b) => {
@@ -137,7 +140,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
     }
 
     const newSlot: Slot = {
-      id: `new-slot-${Date.now()}-${mockSlotIdCounter++}`, // Ensure unique temporary ID
+      id: `new-slot-${Date.now()}-${Math.random().toString(16).slice(2)}`, 
       turfId: turf.id,
       date: selectedDate,
       timeRange: newSlotTimeRange,
@@ -186,8 +189,6 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   const handleSaveChanges = async () => {
     setIsSubmitting(true);
     try {
-      // Filter out only slots belonging to the current turf before saving.
-      // This is important if `initialSlots` could contain slots from other turfs (though unlikely in this setup).
       const slotsToSave = slots.filter(slot => slot.turfId === turf.id);
       await onSlotsUpdate(slotsToSave);
     } catch (error) {
@@ -207,7 +208,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
       case 'maintenance':
         return 'bg-yellow-100 border-yellow-500 hover:bg-yellow-200 text-yellow-700';
       case 'booked':
-        return 'bg-red-100 border-red-500 text-red-700 opacity-75'; // Removed cursor-not-allowed as div won't have it by default
+        return 'bg-red-100 border-red-500 text-red-700 opacity-75';
       default:
         return 'bg-gray-100 border-gray-400';
     }
@@ -222,14 +223,25 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
     }
   }
 
-  // Counter for new slot IDs to ensure uniqueness before saving
-  let mockSlotIdCounter = 1;
-
   const handleSlotCardKeyDown = (event: KeyboardEvent<HTMLDivElement>, slotId: string, currentStatus: Slot['status']) => {
     if (currentStatus !== 'booked' && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault();
       toggleSlotStatus(slotId);
     }
+  };
+
+  const handleMarkDayAs = (newStatus: 'available' | 'maintenance') => {
+    const updatedSlots = slots.map(slot => {
+        if (slot.date === selectedDate && slot.status !== 'booked') {
+            return { ...slot, status: newStatus };
+        }
+        return slot;
+    });
+    setSlots(updatedSlots);
+    toast({
+        title: `Day Status Updated (Locally)`,
+        description: `All non-booked slots for ${format(parseISO(selectedDate), 'MMM d')} marked as ${newStatus}. Save changes to apply.`
+    });
   };
 
 
@@ -245,7 +257,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Add New Slot Section */}
-        <Card className="bg-muted/30 p-4">
+        <Card className="bg-muted/30 p-4 border">
           <h3 className="text-lg font-semibold mb-3">Add Custom Slot</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
@@ -272,9 +284,32 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
               </Select>
             </div>
           </div>
-           <Button onClick={addSlot} className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground">
+           <Button onClick={addSlot} className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Custom Slot for {format(parseISO(selectedDate), 'MMM d')}
             </Button>
+        </Card>
+
+        {/* Bulk Day Actions Section */}
+        <Card className="bg-muted/30 p-4 border">
+            <h3 className="text-lg font-semibold mb-3">Bulk Actions for {format(parseISO(selectedDate), 'MMM d')}</h3>
+            <div className="flex flex-col sm:flex-row gap-2">
+                <Button 
+                    onClick={() => handleMarkDayAs('available')} 
+                    variant="outline" 
+                    className="border-green-600 text-green-700 hover:bg-green-600/10 flex-1" 
+                    disabled={isSubmitting}
+                >
+                <CheckCircle className="mr-2 h-4 w-4" /> Mark All Available
+                </Button>
+                <Button 
+                    onClick={() => handleMarkDayAs('maintenance')} 
+                    variant="outline" 
+                    className="border-yellow-600 text-yellow-700 hover:bg-yellow-600/10 flex-1" 
+                    disabled={isSubmitting}
+                >
+                <Construction className="mr-2 h-4 w-4" /> Mark All Maintenance
+                </Button>
+            </div>
         </Card>
 
         {/* Existing Slots Display & Management */}
@@ -283,10 +318,10 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
           {slotsForSelectedDate.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {slotsForSelectedDate.map(slot => (
-                <div // Changed from button to div
+                <div
                   key={slot.id}
-                  role="button" // Accessibility: informs assistive tech it's a button
-                  tabIndex={slot.status !== 'booked' ? 0 : -1} // Accessibility: make it focusable if not booked
+                  role="button"
+                  tabIndex={slot.status !== 'booked' ? 0 : -1}
                   onClick={() => slot.status !== 'booked' && toggleSlotStatus(slot.id)}
                   onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => handleSlotCardKeyDown(e, slot.id, slot.status)}
                   aria-disabled={slot.status === 'booked'}
