@@ -281,20 +281,20 @@ export default function TurfDetailPage() {
             alt={turf.name}
             width={800}
             height={500}
-            className="w-full h-auto max-h-[500px] object-cover rounded-lg shadow-md"
+            className="w-full h-auto max-h-[300px] sm:max-h-[400px] md:max-h-[500px] object-cover rounded-lg shadow-md"
             data-ai-hint="sports field large"
             unoptimized={selectedImage?.startsWith('blob:')}
           />
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-1 gap-2">
           {turf.images && turf.images.slice(0, 4).map((imgUrl, index) => ( 
-            <button key={index} onClick={() => setSelectedImage(imgUrl)} className="focus:outline-none focus:ring-2 focus:ring-primary rounded-md">
+            <button key={index} onClick={() => setSelectedImage(imgUrl)} className="focus:outline-none focus:ring-2 focus:ring-primary rounded-md aspect-[16/10] md:aspect-auto">
               <Image
                 src={imgUrl}
                 alt={`${turf.name} thumbnail ${index + 1}`}
                 width={200}
                 height={125}
-                className={`w-full h-24 object-cover rounded-md cursor-pointer transition-opacity ${selectedImage === imgUrl ? 'opacity-100 ring-2 ring-primary' : 'opacity-75 hover:opacity-100'}`}
+                className={`w-full h-full object-cover rounded-md cursor-pointer transition-opacity ${selectedImage === imgUrl ? 'opacity-100 ring-2 ring-primary' : 'opacity-75 hover:opacity-100'}`}
                 data-ai-hint="turf detail"
                  unoptimized={imgUrl.startsWith('blob:')}
               />
@@ -307,16 +307,16 @@ export default function TurfDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-lg">
             <CardHeader>
-              <div className="flex justify-between items-start">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                 <div>
-                  <CardTitle className="text-3xl font-bold text-primary">{turf.name}</CardTitle>
+                  <CardTitle className="text-2xl sm:text-3xl font-bold text-primary">{turf.name}</CardTitle>
                   <CardDescription className="flex items-center text-md text-muted-foreground mt-1">
                     <MapPin className="h-5 w-5 mr-2 flex-shrink-0" />
                     {turf.location}
                   </CardDescription>
                 </div>
-                <div className="text-right">
-                   <div className="flex items-center justify-end text-accent mb-1">
+                <div className="text-left sm:text-right mt-2 sm:mt-0">
+                   <div className="flex items-center sm:justify-end text-accent mb-1">
                       {[...Array(5)].map((_, i) => (
                         <Star
                           key={i}
@@ -338,11 +338,11 @@ export default function TurfDetailPage() {
               <p className="text-foreground/80 mb-4 whitespace-pre-line">{turf.description}</p>
               
               <h3 className="text-lg font-semibold mb-2">Amenities:</h3>
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-3 sm:gap-4">
                 {turf.amenities.map(amenity => (
-                  <div key={amenity} className="flex items-center space-x-2 p-2 bg-muted rounded-md">
-                    <AmenityIcon amenity={amenity} className="h-6 w-6 text-primary" />
-                    <span className="capitalize text-sm">{amenity}</span>
+                  <div key={amenity} className="flex items-center space-x-2 p-2 bg-muted rounded-md text-xs sm:text-sm">
+                    <AmenityIcon amenity={amenity} className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                    <span className="capitalize">{amenity}</span>
                   </div>
                 ))}
               </div>
@@ -363,7 +363,7 @@ export default function TurfDetailPage() {
                       id="booking-date"
                       variant={"outline"}
                       className={cn(
-                        "w-full md:w-[280px] justify-start text-left font-normal",
+                        "w-full sm:w-[280px] justify-start text-left font-normal",
                         !selectedCalendarDate && "text-muted-foreground"
                       )}
                     >
@@ -386,7 +386,7 @@ export default function TurfDetailPage() {
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Available Slots for {format(selectedCalendarDate, "PPP")}:</h3>
                   {slotsForSelectedDate.length > 0 ? (
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-2 sm:gap-3">
                       {slotsForSelectedDate.map(slot => {
                         const isSelected = pendingBookingSlots.some(s => s.id === slot.id);
                         const isBooked = slot.status === 'booked';
@@ -419,7 +419,7 @@ export default function TurfDetailPage() {
                             onClick={() => handleSlotSelection(slot)}
                             disabled={isBooked || isMaintenance}
                             className={cn(
-                                "min-w-[130px] transition-all duration-150 ease-in-out py-2 px-3 h-auto",
+                                "min-w-[120px] sm:min-w-[130px] transition-all duration-150 ease-in-out py-2 px-3 h-auto text-xs sm:text-sm",
                                 additionalClasses
                             )}
                             title={buttonTitle}
@@ -493,7 +493,7 @@ export default function TurfDetailPage() {
          
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="text-2xl">Player Reviews</CardTitle>
+              <CardTitle className="text-xl sm:text-2xl">Player Reviews</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 max-h-[600px] overflow-y-auto">
               {reviews.length > 0 ? (
@@ -506,7 +506,7 @@ export default function TurfDetailPage() {
 
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="text-2xl">Leave a Review</CardTitle>
+              <CardTitle className="text-xl sm:text-2xl">Leave a Review</CardTitle>
               {!user && (
                 <CardDescription>You need to be logged in to leave a review.</CardDescription>
               )}
@@ -564,11 +564,11 @@ export default function TurfDetailPage() {
               </div>
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
               <DialogClose asChild>
-              <Button variant="outline" onClick={() => setIsBookingDialogOpen(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setIsBookingDialogOpen(false)} className="w-full sm:w-auto">Cancel</Button>
             </DialogClose>
-            <Button onClick={handleConfirmMultipleBookings} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <Button onClick={handleConfirmMultipleBookings} className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto">
               Confirm & Book
             </Button>
           </DialogFooter>
@@ -577,4 +577,3 @@ export default function TurfDetailPage() {
     </div>
   );
 }
-

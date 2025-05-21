@@ -78,14 +78,14 @@ export default function OwnerTurfsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
             <h1 className="text-3xl font-bold text-primary">My Turfs</h1>
             <p className="text-muted-foreground">Manage your listed turfs and their availability.</p>
         </div>
         {canAddTurf && (
           <Link href="/owner/turfs/new">
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto">
               <PlusCircle className="mr-2 h-5 w-5" /> Add New Turf
             </Button>
           </Link>

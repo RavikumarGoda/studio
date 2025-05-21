@@ -216,10 +216,10 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
 
   const getSlotIcon = (status: Slot['status']) => {
     switch(status) {
-      case 'available': return <CheckCircle className="h-5 w-5 mr-2" />;
-      case 'maintenance': return <Construction className="h-5 w-5 mr-2" />;
-      case 'booked': return <CircleSlash className="h-5 w-5 mr-2" />;
-      default: return <Clock className="h-5 w-5 mr-2" />;
+      case 'available': return <CheckCircle className="h-5 w-5 mr-1 sm:mr-2" />;
+      case 'maintenance': return <Construction className="h-5 w-5 mr-1 sm:mr-2" />;
+      case 'booked': return <CircleSlash className="h-5 w-5 mr-1 sm:mr-2" />;
+      default: return <Clock className="h-5 w-5 mr-1 sm:mr-2" />;
     }
   }
 
@@ -248,7 +248,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   return (
     <Card className="shadow-xl">
       <CardHeader>
-        <CardTitle className="text-2xl">Manage Slots for {turf.name}</CardTitle>
+        <CardTitle className="text-xl sm:text-2xl">Manage Slots for {turf.name}</CardTitle>
         <CardDescription>
           Select a date to view and manage slots. Click on an available or maintenance slot to toggle its status.
           Booked slots cannot be changed here. Default slots from 7 AM to 12 AM (midnight) are generated if none exist for a day.
@@ -262,12 +262,12 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
               <Label htmlFor="slot-date-custom">Date</Label>
-              <Input type="date" id="slot-date-custom" value={selectedDate} onChange={handleDateChange} min={format(new Date(), 'yyyy-MM-dd')} />
+              <Input type="date" id="slot-date-custom" value={selectedDate} onChange={handleDateChange} min={format(new Date(), 'yyyy-MM-dd')} className="w-full"/>
             </div>
             <div>
               <Label htmlFor="slot-time">Time Range</Label>
               <Select value={newSlotTimeRange} onValueChange={setNewSlotTimeRange}>
-                <SelectTrigger id="slot-time"><SelectValue placeholder="Select time range" /></SelectTrigger>
+                <SelectTrigger id="slot-time" className="w-full"><SelectValue placeholder="Select time range" /></SelectTrigger>
                 <SelectContent>
                   {commonTimeRanges.map(range => <SelectItem key={range} value={range}>{range}</SelectItem>)}
                 </SelectContent>
@@ -276,7 +276,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
             <div>
               <Label htmlFor="slot-status-new">Initial Status</Label>
               <Select value={newSlotStatus} onValueChange={(val: Slot['status']) => setNewSlotStatus(val)}>
-                <SelectTrigger id="slot-status-new"><SelectValue placeholder="Select status"/></SelectTrigger>
+                <SelectTrigger id="slot-status-new" className="w-full"><SelectValue placeholder="Select status"/></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="available">Available</SelectItem>
                   <SelectItem value="maintenance">Maintenance</SelectItem>
@@ -284,7 +284,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
               </Select>
             </div>
           </div>
-           <Button onClick={addSlot} className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
+           <Button onClick={addSlot} className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto" disabled={isSubmitting}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Custom Slot for {format(parseISO(selectedDate), 'MMM d')}
             </Button>
         </Card>
@@ -296,7 +296,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
                 <Button 
                     onClick={() => handleMarkDayAs('available')} 
                     variant="outline" 
-                    className="border-green-600 text-green-700 hover:bg-green-600/10 flex-1" 
+                    className="border-green-600 text-green-700 hover:bg-green-600/10 flex-1 w-full sm:w-auto" 
                     disabled={isSubmitting}
                 >
                 <CheckCircle className="mr-2 h-4 w-4" /> Mark All Available
@@ -304,7 +304,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
                 <Button 
                     onClick={() => handleMarkDayAs('maintenance')} 
                     variant="outline" 
-                    className="border-yellow-600 text-yellow-700 hover:bg-yellow-600/10 flex-1" 
+                    className="border-yellow-600 text-yellow-700 hover:bg-yellow-600/10 flex-1 w-full sm:w-auto" 
                     disabled={isSubmitting}
                 >
                 <Construction className="mr-2 h-4 w-4" /> Mark All Maintenance
@@ -316,7 +316,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
         <div>
           <h3 className="text-lg font-semibold mb-2">Slots for {format(parseISO(selectedDate), 'EEEE, MMM d, yyyy')}</h3>
           {slotsForSelectedDate.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {slotsForSelectedDate.map(slot => (
                 <div
                   key={slot.id}
@@ -326,16 +326,16 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
                   onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => handleSlotCardKeyDown(e, slot.id, slot.status)}
                   aria-disabled={slot.status === 'booked'}
                   className={cn(
-                    "relative p-3 border rounded-lg shadow-sm transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring", 
+                    "relative p-3 border rounded-lg shadow-sm transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring text-xs sm:text-sm", 
                     getSlotCardClasses(slot.status),
                     slot.status !== 'booked' ? 'cursor-pointer' : 'cursor-not-allowed'
                   )}
                 >
                   <div className="flex items-center justify-center mb-1">
                     {getSlotIcon(slot.status)}
-                    <span className="font-medium text-sm capitalize">{slot.status}</span>
+                    <span className="font-medium capitalize">{slot.status}</span>
                   </div>
-                  <p className="text-xs text-center">{slot.timeRange}</p>
+                  <p className="text-center">{slot.timeRange}</p>
                   {slot.status === 'booked' && slot.bookedBy && (
                     <p className="text-xs text-center mt-1 opacity-80">(By ...{slot.bookedBy.slice(-4)})</p>
                   )}
@@ -361,7 +361,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
         </div>
 
         <div className="mt-6 flex justify-end">
-          <Button onClick={handleSaveChanges} className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isSubmitting}>
+          <Button onClick={handleSaveChanges} className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save All Changes
           </Button>
@@ -377,12 +377,12 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
               {slotToDelete?.status === 'booked' && <span className="block mt-2 font-semibold text-destructive">This slot is BOOKED and cannot be deleted.</span>}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSlotToDelete(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <AlertDialogCancel onClick={() => setSlotToDelete(null)} className="w-full sm:w-auto">Cancel</AlertDialogCancel>
             <AlertDialogAction
                 onClick={confirmDeleteSlot}
                 disabled={slotToDelete?.status === 'booked'}
-                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground w-full sm:w-auto"
             >
                 Delete Slot
             </AlertDialogAction>
@@ -393,4 +393,3 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
     </Card>
   );
 }
-

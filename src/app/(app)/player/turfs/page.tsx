@@ -101,7 +101,7 @@ export default function TurfsPage() {
         <p className="text-muted-foreground">Find the perfect spot for your next game.</p>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 items-center">
+      <div className="flex flex-col md:flex-row gap-4">
         <div className="relative w-full md:flex-grow">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input 
@@ -113,53 +113,55 @@ export default function TurfsPage() {
           />
         </div>
         
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-full md:w-[180px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="rating">Sort by Rating</SelectItem>
-            <SelectItem value="price_asc">Price: Low to High</SelectItem>
-            <SelectItem value="price_desc">Price: High to Low</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+            <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="rating">Sort by Rating</SelectItem>
+                <SelectItem value="price_asc">Price: Low to High</SelectItem>
+                <SelectItem value="price_desc">Price: High to Low</SelectItem>
+            </SelectContent>
+            </Select>
 
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" className="w-full md:w-auto">
-              <SlidersHorizontal className="mr-2 h-4 w-4" /> Filters
-            </Button>
-          </SheetTrigger>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>Filter Turfs</SheetTitle>
-              <SheetDescription>
-                Select amenities to narrow down your search.
-              </SheetDescription>
-            </SheetHeader>
-            <div className="grid gap-4 py-4">
-              <Label className="font-semibold">Amenities</Label>
-              {allAmenities.map((amenity) => (
-                <div key={amenity} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`amenity-${amenity}`}
-                    checked={selectedAmenities.includes(amenity)}
-                    onCheckedChange={() => handleAmenityChange(amenity)}
-                  />
-                  <label
-                    htmlFor={`amenity-${amenity}`}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 capitalize"
-                  >
-                    {amenity}
-                  </label>
+            <Sheet>
+            <SheetTrigger asChild>
+                <Button variant="outline" className="w-full sm:w-auto">
+                <SlidersHorizontal className="mr-2 h-4 w-4" /> Filters
+                </Button>
+            </SheetTrigger>
+            <SheetContent>
+                <SheetHeader>
+                <SheetTitle>Filter Turfs</SheetTitle>
+                <SheetDescription>
+                    Select amenities to narrow down your search.
+                </SheetDescription>
+                </SheetHeader>
+                <div className="grid gap-4 py-4">
+                <Label className="font-semibold">Amenities</Label>
+                {allAmenities.map((amenity) => (
+                    <div key={amenity} className="flex items-center space-x-2">
+                    <Checkbox
+                        id={`amenity-${amenity}`}
+                        checked={selectedAmenities.includes(amenity)}
+                        onCheckedChange={() => handleAmenityChange(amenity)}
+                    />
+                    <label
+                        htmlFor={`amenity-${amenity}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 capitalize"
+                    >
+                        {amenity}
+                    </label>
+                    </div>
+                ))}
                 </div>
-              ))}
-            </div>
-          </SheetContent>
-        </Sheet>
+            </SheetContent>
+            </Sheet>
+        </div>
       </div>
 
-      {filteredTurfs.length === 0 && (
+      {filteredTurfs.length === 0 && !isLoading && (
          <p className="text-center text-muted-foreground py-8">
            {searchTerm || selectedAmenities.length > 0 
              ? "No turfs match your current filters. Try adjusting your search."
@@ -167,7 +169,7 @@ export default function TurfsPage() {
          </p>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredTurfs.map((turf) => (
           <TurfCard key={turf.id} turf={turf} />
         ))}

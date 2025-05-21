@@ -50,7 +50,7 @@ export default function PlayerDashboardPage() {
         <p className="text-muted-foreground mt-1">Ready to hit the field? Let&apos;s find your next game.</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2"> {/* Updated grid-cols to 2 for better layout */}
+      <div className="grid gap-6 md:grid-cols-2"> {/* Simplified grid for better stacking */}
         <Card className="shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -87,24 +87,26 @@ export default function PlayerDashboardPage() {
         <CardHeader>
           <CardTitle>Featured Turf</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col md:flex-row gap-4 items-center">
+        <CardContent className="flex flex-col md:flex-row gap-4 md:items-center">
           {isLoadingFeatured ? (
-            <div className="flex items-center justify-center w-full h-[150px] md:w-[300px]">
+            <div className="flex items-center justify-center w-full h-[150px] md:w-[200px] lg:w-[300px] flex-shrink-0">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : featuredTurf ? (
             <>
-              <Image 
-                src={featuredTurf.images[0] || "https://placehold.co/600x300.png"} 
-                alt={featuredTurf.name} 
-                width={300} 
-                height={150} 
-                className="rounded-md object-cover"
-                data-ai-hint="sports field" // Generic hint, could be improved with turf-specific data
-              />
-              <div>
+              <div className="w-full md:w-[200px] lg:w-[300px] h-auto md:h-[150px] flex-shrink-0">
+                <Image 
+                  src={featuredTurf.images[0] || "https://placehold.co/600x300.png"} 
+                  alt={featuredTurf.name} 
+                  width={300} 
+                  height={150} 
+                  className="rounded-md object-cover w-full h-full"
+                  data-ai-hint="sports field" 
+                />
+              </div>
+              <div className="mt-4 md:mt-0 md:ml-4">
                 <h3 className="text-xl font-semibold">{featuredTurf.name}</h3>
-                <p className="text-muted-foreground mb-2 line-clamp-2">{featuredTurf.description}</p>
+                <p className="text-muted-foreground mb-2 line-clamp-2 md:line-clamp-3">{featuredTurf.description}</p>
                 <Link href={`/player/turfs/${featuredTurf.id}`}>
                   <Button variant="link" className="p-0 text-primary">View Details &rarr;</Button>
                 </Link>

@@ -120,7 +120,7 @@ export default function OwnerDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Link href="/owner/turfs" passHref>
           <Card className="shadow-lg hover:shadow-xl transition-shadow cursor-pointer h-full flex flex-col">
             <CardHeader className="flex-grow">

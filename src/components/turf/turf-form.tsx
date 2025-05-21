@@ -163,6 +163,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
       // Simulate upload and get placeholder URLs for form data
       const uploadedPlaceholderUrlsPromises = filesArray.map(async () => {
         await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 200)); 
+        // Use a generic placeholder URL as per guidelines
         return `https://placehold.co/600x400.png`; 
       });
       
@@ -188,18 +189,18 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
       let fileToRemoveAtIndex = -1;
       // This logic assumes that imagePreviews contains existing URLs first, then blob URLs
       // Iterate through the original imagePreviews to find the correct file index
-      let originalPreviews = form.getValues("images"); // Get the URLs that were there *before* this removal
-      let blobsCountInOriginalPreviews = imagePreviews.filter(url => url.startsWith("blob:")).length;
-      let filesUploadedThisSession = imageFilesToUpload.length;
+      // let originalPreviews = form.getValues("images"); // Get the URLs that were there *before* this removal
+      // let blobsCountInOriginalPreviews = imagePreviews.filter(url => url.startsWith("blob:")).length;
+      // let filesUploadedThisSession = imageFilesToUpload.length;
 
       // Determine if the removed image was a blob (newly uploaded) or an existing URL
-      let isBlobRemoval = removedPreviewUrl.startsWith('blob:');
+      // let isBlobRemoval = removedPreviewUrl.startsWith('blob:');
       
-      if (isBlobRemoval) {
+      // if (isBlobRemoval) {
          // Count how many blob URLs are *before* the one being removed
         let blobIndex = 0;
         for(let i=0; i < indexToRemove; i++){
-            if(imagePreviews[i].startsWith('blob:')) {
+            if(imagePreviews[i]?.startsWith('blob:')) { // Added null check for imagePreviews[i]
                 blobIndex++;
             }
         }
@@ -207,7 +208,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
         if(blobIndex < imageFilesToUpload.length){
              setImageFilesToUpload(prevFiles => prevFiles.filter((_, i) => i !== blobIndex));
         }
-      }
+      // }
     }
 
     const currentFormImageUrls = form.getValues("images");
@@ -241,7 +242,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
     <Card className="shadow-xl">
         <CardHeader>
             <CardTitle className="text-2xl">{initialData?.id ? "Edit Turf" : "Add New Turf"}</CardTitle>
-            <CardDescription>{initialData?.id ? "Update the details of your turf." : "Fill in the details to list your turf on TurfLink."}</CardDescription>
+            <CardDescription>{initialData?.id ? "Update the details of your turf." : "Fill in the details to list your turf on TOD (TurfOnDemand)."}</CardDescription>
         </CardHeader>
         <CardContent>
             <Form {...form}>
@@ -338,7 +339,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                         Select all available amenities at your turf.
                         </FormDescription>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {allAmenitiesList.map((item) => (
                         <FormField
                         key={item.id}
@@ -421,15 +422,14 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                       </FormControl>
                       <FormDescription>Upload 1-5 images of your turf. First image is primary. Accepted: JPG, PNG, WebP.</FormDescription>
                       {imagePreviews.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
                           {imagePreviews.map((previewUrl, index) => (
-                            <div key={`${previewUrl}-${index}`} className="relative group">
+                            <div key={`${previewUrl}-${index}`} className="relative group aspect-[3/2]">
                               <Image
                                 src={previewUrl}
                                 alt={`Preview ${index + 1}`}
-                                width={150}
-                                height={100}
-                                className="rounded-md object-cover w-full h-24"
+                                fill
+                                className="rounded-md object-cover"
                                 data-ai-hint="facility photo"
                                 unoptimized={previewUrl.startsWith('blob:')} 
                               />
@@ -475,11 +475,11 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                 )}
                 />
 
-                <div className="flex justify-end space-x-4">
-                    <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmittingForm || isUploadingImages}>
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
+                    <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmittingForm || isUploadingImages} className="w-full sm:w-auto">
                         Cancel
                     </Button>
-                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmittingForm || isUploadingImages || form.getValues("images")?.length === 0}>
+                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto" disabled={isSubmittingForm || isUploadingImages || form.getValues("images")?.length === 0}>
                         {(isSubmittingForm || isUploadingImages) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {initialData?.id ? "Save Changes" : "Add Turf"}
                     </Button>

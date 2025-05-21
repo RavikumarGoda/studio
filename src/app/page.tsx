@@ -34,9 +34,9 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <header className="container mx-auto py-6 px-4 md:px-6 flex justify-between items-center">
+      <header className="container mx-auto py-6 px-4 md:px-6 flex flex-col sm:flex-row justify-between items-center">
         <Logo />
-        <nav className="space-x-4">
+        <nav className="space-x-2 sm:space-x-4 mt-4 sm:mt-0">
           <Link href="/login" passHref>
             <Button variant="outline" className="text-primary border-primary hover:bg-primary/10">
               <LogIn className="mr-2 h-4 w-4" /> Login
@@ -52,21 +52,21 @@ export default function LandingPage() {
 
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="container mx-auto py-16 px-4 md:px-6 text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-primary mb-6">
+        <section className="container mx-auto py-12 md:py-16 px-4 md:px-6 text-center">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-primary mb-6">
             Find & Book Your Perfect Turf
           </h1>
-          <p className="text-xl text-foreground/80 mb-10 max-w-3xl mx-auto">
+          <p className="text-lg sm:text-xl text-foreground/80 mb-8 sm:mb-10 max-w-3xl mx-auto">
             TOD (TurfOnDemand) connects players with top-quality sports turfs. Owners can easily list and manage their facilities.
           </p>
-          <div className="space-x-4">
+          <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
             <Link href="/player/turfs" passHref>
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto">
                 Find a Turf <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
             <Link href="/owner/turfs/new" passHref> 
-              <Button size="lg" variant="outline" className="border-accent text-accent hover:bg-accent/10">
+              <Button size="lg" variant="outline" className="border-accent text-accent hover:bg-accent/10 w-full sm:w-auto">
                 List Your Turf
               </Button>
             </Link>
@@ -74,7 +74,7 @@ export default function LandingPage() {
         </section>
 
         {/* Features Section */}
-        <section className="bg-white py-16">
+        <section className="bg-white py-12 md:py-16">
           <div className="container mx-auto px-4 md:px-6">
             <h2 className="text-3xl font-bold text-center text-foreground mb-12">Why Choose TOD?</h2>
             <div className="grid md:grid-cols-3 gap-8">
@@ -98,13 +98,13 @@ export default function LandingPage() {
         </section>
         
         {/* Placeholder for image */}
-        <section className="py-16 container mx-auto px-4 md:px-6">
+        <section className="py-12 md:py-16 container mx-auto px-4 md:px-6">
            <Image 
             src="https://placehold.co/1200x400.png" 
             alt="Happy people playing on a turf" 
             width={1200} 
             height={400} 
-            className="rounded-lg shadow-xl mx-auto"
+            className="rounded-lg shadow-xl mx-auto w-full h-auto"
             data-ai-hint="sports field action"
             />
         </section>

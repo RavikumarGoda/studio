@@ -137,7 +137,7 @@ export default function OwnerBookingsPage() {
           <p className="text-muted-foreground">Oversee all reservations for your turfs.</p>
         </div>
         {ownerTurfs.length > 1 && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full md:w-auto">
              <Filter className="h-5 w-5 text-muted-foreground" />
             <Select value={selectedTurfId} onValueChange={setSelectedTurfId}>
                 <SelectTrigger className="w-full md:w-[250px]">
@@ -154,9 +154,9 @@ export default function OwnerBookingsPage() {
       </div>
 
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5 mb-4">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mb-4">
           {bookingTabs.map(tab => (
-             <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>
+             <TabsTrigger key={tab.value} value={tab.value} className="text-xs sm:text-sm">{tab.label}</TabsTrigger>
           ))}
         </TabsList>
 
