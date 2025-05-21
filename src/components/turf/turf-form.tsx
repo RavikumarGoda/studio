@@ -24,7 +24,7 @@ import type { Turf } from "@/types";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { UploadCloud, XCircle, Loader2 } from "lucide-react";
+import { UploadCloud, XCircle, Loader2, Phone } from "lucide-react";
 import Image from "next/image";
 import { useState, ChangeEvent, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,12 @@ import { cn } from "@/lib/utils";
 const turfFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
   location: z.string().min(5, "Location is required."),
+  ownerPhoneNumber: z.string()
+    .optional()
+    .refine(val => !val || /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/.test(val), {
+        message: "Invalid phone number format.",
+    })
+    .or(z.literal('')), // Allow empty string to clear optional field
   pricePerHour: z.coerce.number().min(0, "Price must be a positive number."),
   description: z.string().min(10, "Description must be at least 10 characters.").max(1000, "Description too long."),
   amenities: z.array(z.string()).refine(value => value.some(item => item), {
@@ -75,6 +81,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
     defaultValues: {
       name: initialData?.name || "",
       location: initialData?.location || "",
+      ownerPhoneNumber: initialData?.ownerPhoneNumber || "",
       pricePerHour: initialData?.pricePerHour || 0,
       description: initialData?.description || "",
       amenities: initialData?.amenities || [],
@@ -105,11 +112,12 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
   });
 
   useEffect(() => {
-    blobUrlManager.current.revokeAll(); // Clean up previous blob URLs
+    blobUrlManager.current.revokeAll(); 
 
     const defaultFormValues = {
       name: initialData?.name || "",
       location: initialData?.location || "",
+      ownerPhoneNumber: initialData?.ownerPhoneNumber || "",
       pricePerHour: initialData?.pricePerHour || 0,
       description: initialData?.description || "",
       amenities: initialData?.amenities || [],
@@ -117,12 +125,12 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
       isVisible: initialData?.isVisible === undefined ? true : initialData.isVisible,
     };
     
-    form.reset(defaultFormValues); // Reset form with initial or default values
+    form.reset(defaultFormValues); 
     setImagePreviews(initialData?.images || []);
     setImageFilesToUpload([]);
 
     return () => {
-      blobUrlManager.current.revokeAll(); // Cleanup on component unmount
+      blobUrlManager.current.revokeAll(); 
     };
   }, [initialData, form]);
 
@@ -132,7 +140,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
       const filesArray = Array.from(event.target.files);
       if (imagePreviews.length + filesArray.length > 5) {
         toast({ title: "Image Limit", description: "You can upload a maximum of 5 images.", variant: "destructive" });
-        event.target.value = ""; // Clear the file input
+        event.target.value = ""; 
         return;
       }
 
@@ -148,12 +156,14 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
         newFilesToUploadAddition.push(file);
       }
       
+      // Show actual image previews first
       setImagePreviews(prev => [...prev, ...newLocalBlobPreviews]);
       setImageFilesToUpload(prev => [...prev, ...newFilesToUploadAddition]);
 
+      // Simulate upload and get placeholder URLs for form data
       const uploadedPlaceholderUrlsPromises = filesArray.map(async () => {
         await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 200)); 
-        return `https://placehold.co/600x400.png`;
+        return `https://placehold.co/600x400.png`; 
       });
       
       const newPlaceholderUrls = await Promise.all(uploadedPlaceholderUrlsPromises);
@@ -174,27 +184,32 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
     if (removedPreviewUrl.startsWith('blob:')) {
       blobUrlManager.current.remove(removedPreviewUrl);
       
-      // Remove the corresponding file from imageFilesToUpload
-      // This relies on the order of blob URLs in imagePreviews matching imageFilesToUpload
       let blobIndexTally = 0;
       let fileToRemoveAtIndex = -1;
-      for(let i = 0; i < imagePreviews.length; i++) {
-        if(imagePreviews[i].startsWith('blob:')) {
-          if(i === indexToRemove) {
-            fileToRemoveAtIndex = blobIndexTally;
-            break;
-          }
-          blobIndexTally++;
+      // This logic assumes that imagePreviews contains existing URLs first, then blob URLs
+      // Iterate through the original imagePreviews to find the correct file index
+      let originalPreviews = form.getValues("images"); // Get the URLs that were there *before* this removal
+      let blobsCountInOriginalPreviews = imagePreviews.filter(url => url.startsWith("blob:")).length;
+      let filesUploadedThisSession = imageFilesToUpload.length;
+
+      // Determine if the removed image was a blob (newly uploaded) or an existing URL
+      let isBlobRemoval = removedPreviewUrl.startsWith('blob:');
+      
+      if (isBlobRemoval) {
+         // Count how many blob URLs are *before* the one being removed
+        let blobIndex = 0;
+        for(let i=0; i < indexToRemove; i++){
+            if(imagePreviews[i].startsWith('blob:')) {
+                blobIndex++;
+            }
         }
-      }
-      if(fileToRemoveAtIndex !== -1) {
-        setImageFilesToUpload(prevFiles => prevFiles.filter((_, i) => i !== fileToRemoveAtIndex));
+        // Remove the corresponding file
+        if(blobIndex < imageFilesToUpload.length){
+             setImageFilesToUpload(prevFiles => prevFiles.filter((_, i) => i !== blobIndex));
+        }
       }
     }
 
-    // Update form's "images" array
-    // The URL at `indexToRemove` in `imagePreviews` (before filtering) corresponds to the URL
-    // at `indexToRemove` in the form's `images` array.
     const currentFormImageUrls = form.getValues("images");
     if (indexToRemove < currentFormImageUrls.length) {
         const updatedFormImageUrls = currentFormImageUrls.filter((_, i) => i !== indexToRemove);
@@ -211,7 +226,6 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
     setIsSubmittingForm(true);
     try {
       await onSubmitForm(data);
-      // blobUrlManager.current.revokeAll(); // Moved to useEffect cleanup
     } catch (error) {
       toast({
         title: "Error",
@@ -259,6 +273,30 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                     <FormMessage />
                     </FormItem>
                 )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="ownerPhoneNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Owner Phone Number (Optional)</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                           <Input 
+                             type="tel" 
+                             placeholder="E.g., +919876543210" 
+                             {...field} 
+                             className="pl-10"
+                             disabled={isSubmittingForm || isUploadingImages} 
+                           />
+                        </div>
+                      </FormControl>
+                      <FormDescription>Contact number for turf inquiries.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
 
                 <FormField
@@ -385,7 +423,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                       {imagePreviews.length > 0 && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
                           {imagePreviews.map((previewUrl, index) => (
-                            <div key={`${previewUrl}-${index}`} className="relative group"> {/* Ensure unique key */}
+                            <div key={`${previewUrl}-${index}`} className="relative group">
                               <Image
                                 src={previewUrl}
                                 alt={`Preview ${index + 1}`}

@@ -1,3 +1,4 @@
+
 import type { Timestamp } from "firebase/firestore";
 
 export interface User {
@@ -13,6 +14,7 @@ export interface Turf {
   ownerId: string;
   name: string;
   location: string; // Could be more complex, e.g., GeoPoint or address object
+  ownerPhoneNumber?: string; // Added owner phone number
   pricePerHour: number;
   images: string[]; // URLs
   amenities: string[]; // e.g., "parking", "restroom", "floodlights"

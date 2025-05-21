@@ -14,11 +14,11 @@ let mockReviewsDB: Review[] = [];
 // Mock data for Bookings - starting empty
 let mockBookingsDB: Booking[] = [];
 
-// ID Counters - will start based on empty arrays + a small random factor for uniqueness in a session
-let mockTurfIdCounter = mockTurfsDB.length + 1 + Date.now() % 1000;
-let mockSlotIdCounter = mockSlotsDB.length + 1 + Date.now() % 1000;
-let mockReviewIdCounter = mockReviewsDB.length + 1 + Date.now() % 1000;
-let mockBookingIdCounter = mockBookingsDB.length + 1 + Date.now() % 1000;
+// ID Counters
+let mockTurfIdCounter = 1;
+let mockSlotIdCounter = 1;
+let mockReviewIdCounter = 1;
+let mockBookingIdCounter = 1;
 
 
 // Turf operations
@@ -47,6 +47,7 @@ export const addTurf = (turfData: Omit<Turf, 'id' | 'createdAt' | 'ownerId'>, ow
     createdAt: new Date(),
     averageRating: turfData.averageRating === undefined ? 0 : turfData.averageRating,
     reviewCount: turfData.reviewCount === undefined ? 0 : turfData.reviewCount,
+    ownerPhoneNumber: turfData.ownerPhoneNumber || undefined,
   };
   mockTurfsDB.push(newTurf);
   return { ...newTurf };
@@ -141,7 +142,9 @@ export const addBooking = (bookingData: Omit<Booking, 'id' | 'createdAt'>): Book
 export const getMockPlayerName = (playerId: string) => {
     if (playerId === 'mock-player-uid') return 'Player User';
     if (playerId === 'mock-owner-uid') return 'Owner User';
-    return `Player (...${playerId.slice(-4)})`;
+    // Example of a simple way to make other IDs somewhat readable
+    const playerSpecificPart = playerId.replace('mock-player-', '').substring(0, 5);
+    return `Player ${playerSpecificPart}`;
 };
 
 export const getAllMockTurfs = () => mockTurfsDB;
@@ -156,9 +159,12 @@ export const initializeMockData = () => {
     mockReviewsDB = [];
     mockBookingsDB = [];
     // Reset counters
-    mockTurfIdCounter = 1 + Date.now() % 1000;
-    mockSlotIdCounter = 1 + Date.now() % 1000;
-    mockReviewIdCounter = 1 + Date.now() % 1000;
-    mockBookingIdCounter = 1 + Date.now() % 1000;
+    mockTurfIdCounter = 1;
+    mockSlotIdCounter = 1;
+    mockReviewIdCounter = 1;
+    mockBookingIdCounter = 1;
     console.log("Mock DB re-initialized and wiped clean.");
 };
+
+// Initialize with empty data when this module is first loaded
+initializeMockData();
