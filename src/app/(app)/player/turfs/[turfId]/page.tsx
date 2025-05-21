@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { MapPin, IndianRupee, Star, Clock, CalendarDays, ChevronLeft, Loader2 as PageLoaderIcon, UserCheck, MessageSquareWarning, LogIn, Calendar as CalendarIcon } from 'lucide-react';
+import { MapPin, IndianRupee, Star, Clock, CalendarDays, ChevronLeft, Loader2 as PageLoaderIcon, UserCheck, MessageSquareWarning, LogIn, Calendar as CalendarIcon, Construction } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -430,21 +430,41 @@ export default function TurfDetailPage() {
                       {slotsForSelectedDate.map(slot => {
                         const isSelected = pendingBookingSlots.some(s => s.id === slot.id);
                         const isBooked = slot.status === 'booked';
+                        const isMaintenance = slot.status === 'maintenance';
+
+                        let slotVariant: "default" | "secondary" | "outline" = "secondary";
+                        let slotIcon = <Clock className="mr-1.5 h-3.5 w-3.5"/>;
+                        let additionalClasses = "hover:bg-primary/10 text-foreground";
+                        let buttonTitle = "Available";
+
+                        if (isBooked) {
+                            slotVariant = "outline";
+                            additionalClasses = "border-border text-muted-foreground cursor-not-allowed opacity-60 bg-muted/30 hover:bg-muted/30";
+                            buttonTitle = "Slot booked";
+                        } else if (isMaintenance) {
+                            slotVariant = "outline";
+                            additionalClasses = "border-yellow-500/50 text-yellow-700 cursor-not-allowed opacity-70 bg-yellow-500/10 hover:bg-yellow-500/10";
+                            slotIcon = <Construction className="mr-1.5 h-3.5 w-3.5 text-yellow-600"/>;
+                            buttonTitle = "Slot under maintenance";
+                        } else if (isSelected) {
+                            slotVariant = "default";
+                            additionalClasses = "bg-primary text-primary-foreground ring-2 ring-primary-foreground ring-offset-1 ring-offset-primary shadow-md";
+                        }
+                        
                         return (
                           <Button
                             key={slot.id}
-                            variant={isBooked ? "outline" : (isSelected ? "default" : "secondary")}
+                            variant={slotVariant}
                             size="sm"
                             onClick={() => handleSlotSelection(slot)}
-                            disabled={isBooked}
+                            disabled={isBooked || isMaintenance}
                             className={cn(
                                 "min-w-[130px] transition-all duration-150 ease-in-out py-2 px-3 h-auto",
-                                isBooked && "border-border text-muted-foreground cursor-not-allowed opacity-60 bg-muted/30 hover:bg-muted/30",
-                                isSelected && "bg-primary text-primary-foreground ring-2 ring-primary-foreground ring-offset-1 ring-offset-primary shadow-md",
-                                !isBooked && !isSelected && "hover:bg-primary/10 text-foreground"
+                                additionalClasses
                             )}
+                            title={buttonTitle}
                           >
-                            <Clock className="mr-1.5 h-3.5 w-3.5"/> {slot.timeRange}
+                            {slotIcon} {slot.timeRange}
                           </Button>
                         );
                       })}
