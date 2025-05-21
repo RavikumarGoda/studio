@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CalendarDays, Clock, Trash2, PlusCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Clock, Trash2, PlusCircle, AlertTriangle, Loader2, CheckCircle, CircleSlash, Construction } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -28,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { cn } from '@/lib/utils';
 
 interface SlotManagerProps {
   turf: Turf;
@@ -103,19 +104,14 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   const { toast } = useToast();
 
   useEffect(() => {
-    // Start with all initial slots
     let processedSlots = [...initialSlots];
-    
-    // Check if the selectedDate specifically needs default generation
     const selectedDateHasInitialSlots = initialSlots.some(slot => slot.date === selectedDate);
     
     if (!selectedDateHasInitialSlots) {
         const defaultGeneratedSlots = generateDefaultSlots(selectedDate, turf.id);
-        // Add default slots only if no initial slots exist for this specific date
         processedSlots = [...processedSlots, ...defaultGeneratedSlots];
     }
     
-    // Sort all processed slots: first by date, then by time
     processedSlots.sort((a, b) => {
         const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
         if (dateComparison !== 0) return dateComparison;
@@ -135,7 +131,6 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
         toast({title: "Missing Information", description: "Please select a date and time range.", variant: "destructive"});
         return;
     }
-    // Check for duplicate slot time on the same date
     if (slots.some(slot => slot.date === selectedDate && slot.timeRange === newSlotTimeRange)) {
         toast({title: "Duplicate Slot", description: "This time range already exists for the selected date.", variant: "destructive"});
         return;
@@ -158,9 +153,19 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
     toast({title: "Slot Added (Locally)", description: "Remember to save changes."});
   };
   
-  const updateSlotStatus = (slotId: string, status: Slot['status']) => {
-    const updatedSlots = slots.map(slot => slot.id === slotId ? { ...slot, status } : slot);
-    setSlots(updatedSlots);
+  const toggleSlotStatus = (slotId: string) => {
+    setSlots(prevSlots => 
+      prevSlots.map(slot => {
+        if (slot.id === slotId) {
+          if (slot.status === 'available') {
+            return { ...slot, status: 'maintenance' };
+          } else if (slot.status === 'maintenance') {
+            return { ...slot, status: 'available' };
+          }
+        }
+        return slot;
+      })
+    );
   };
 
   const confirmDeleteSlot = () => {
@@ -180,8 +185,6 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   const handleSaveChanges = async () => {
     setIsSubmitting(true);
     try {
-      // Filter out only slots that belong to the current turf before saving
-      // This prevents accidentally trying to save/modify slots from other turfs if `initialSlots` contained them
       const slotsToSave = slots.filter(slot => slot.turfId === turf.id);
       await onSlotsUpdate(slotsToSave); 
     } catch (error) {
@@ -194,11 +197,37 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   const slotsForSelectedDate = slots.filter(slot => slot.date === selectedDate)
     .sort((a,b) => timeRangeToMinutes(a.timeRange) - timeRangeToMinutes(b.timeRange));
 
+  const getSlotCardClasses = (status: Slot['status']) => {
+    switch (status) {
+      case 'available':
+        return 'bg-green-100 border-green-500 hover:bg-green-200 text-green-700';
+      case 'maintenance':
+        return 'bg-yellow-100 border-yellow-500 hover:bg-yellow-200 text-yellow-700';
+      case 'booked':
+        return 'bg-red-100 border-red-500 text-red-700 cursor-not-allowed opacity-75';
+      default:
+        return 'bg-gray-100 border-gray-400';
+    }
+  };
+
+  const getSlotIcon = (status: Slot['status']) => {
+    switch(status) {
+      case 'available': return <CheckCircle className="h-5 w-5 mr-2" />;
+      case 'maintenance': return <Construction className="h-5 w-5 mr-2" />;
+      case 'booked': return <CircleSlash className="h-5 w-5 mr-2" />;
+      default: return <Clock className="h-5 w-5 mr-2" />;
+    }
+  }
+
   return (
     <Card className="shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl">Manage Slots for {turf.name}</CardTitle>
-        <CardDescription>Add, edit, or remove time slots for your turf. Default slots from 7 AM to 12 AM (midnight) are generated if none exist for a day. Make sure to save your changes.</CardDescription>
+        <CardDescription>
+          Select a date to view and manage slots. Click on an available or maintenance slot to toggle its status. 
+          Booked slots cannot be changed here. Default slots from 7 AM to 12 AM (midnight) are generated if none exist for a day.
+          Make sure to save your changes.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Add New Slot Section */}
@@ -238,45 +267,44 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
         <div>
           <h3 className="text-lg font-semibold mb-2">Slots for {format(parseISO(selectedDate), 'EEEE, MMM d, yyyy')}</h3>
           {slotsForSelectedDate.length > 0 ? (
-            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {slotsForSelectedDate.map(slot => (
-                <div key={slot.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 border rounded-md bg-card hover:bg-muted/50 transition-colors space-y-2 sm:space-y-0">
-                  <div className="flex-grow">
-                    <p className="font-medium"><Clock className="inline h-4 w-4 mr-1 text-muted-foreground" /> {slot.timeRange}</p>
-                     {slot.status === 'booked' && slot.bookedBy && (
-                        <p className="text-xs text-blue-600">Booked (Player ID: ...{slot.bookedBy.slice(-4)})</p>
-                    )}
+                <button
+                  key={slot.id}
+                  onClick={() => slot.status !== 'booked' && toggleSlotStatus(slot.id)}
+                  disabled={slot.status === 'booked'}
+                  className={cn(
+                    "p-3 border rounded-lg shadow-sm transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring",
+                    getSlotCardClasses(slot.status),
+                    slot.status !== 'booked' ? 'cursor-pointer' : 'cursor-not-allowed'
+                  )}
+                >
+                  <div className="flex items-center justify-center mb-1">
+                    {getSlotIcon(slot.status)}
+                    <span className="font-medium text-sm capitalize">{slot.status}</span>
                   </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Select 
-                        value={slot.status} 
-                        onValueChange={(value: Slot['status']) => updateSlotStatus(slot.id, value)}
-                        disabled={slot.status === 'booked'}
-                    >
-                      <SelectTrigger className="w-full sm:w-[150px]">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="available">Available</SelectItem>
-                        <SelectItem value="maintenance">Maintenance</SelectItem>
-                        {slot.status === 'booked' && <SelectItem value="booked" disabled>Booked</SelectItem>}
-                      </SelectContent>
-                    </Select>
-                    <Button 
+                  <p className="text-xs text-center">{slot.timeRange}</p>
+                  {slot.status === 'booked' && slot.bookedBy && (
+                    <p className="text-xs text-center mt-1 opacity-80">(By ...{slot.bookedBy.slice(-4)})</p>
+                  )}
+                   <Button 
                         variant="ghost" 
                         size="icon" 
-                        onClick={() => setSlotToDelete(slot)}
+                        onClick={(e) => { e.stopPropagation(); setSlotToDelete(slot);}} // Stop propagation to prevent card click
                         disabled={slot.status === 'booked'}
-                        className={slot.status === 'booked' ? 'cursor-not-allowed' : 'text-destructive hover:bg-destructive/10'}
+                        className={cn(
+                            "absolute top-1 right-1 h-6 w-6",
+                            slot.status === 'booked' ? 'hidden' : 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                        )}
+                        aria-label="Delete slot"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                  </div>
-                </div>
+                </button>
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-4">No slots configured for this date. (Defaults should appear if none saved)</p>
+            <p className="text-muted-foreground text-center py-4">No slots configured for this date. Defaults will be generated if none are saved.</p>
           )}
         </div>
 
@@ -313,4 +341,3 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
     </Card>
   );
 }
-
