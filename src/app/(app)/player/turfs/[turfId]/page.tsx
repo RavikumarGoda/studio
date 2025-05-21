@@ -46,7 +46,7 @@ function timeStringToMinutes(timeStr: string): number {
 
 export default function TurfDetailPage() {
   const params = useParams();
-  const turfId = params.turfId as string;
+  const [resolvedTurfId, setResolvedTurfId] = useState<string | null>(null);
   const { user } = useAuth();
   const [turf, setTurf] = useState<Turf | null>(null);
   const [allSlots, setAllSlots] = useState<Slot[]>([]); // All slots for the turf
@@ -62,15 +62,21 @@ export default function TurfDetailPage() {
   const [pendingBookingSlots, setPendingBookingSlots] = useState<Slot[]>([]); // Slots selected by user for booking
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
 
+  useEffect(() => {
+    if (params?.turfId && typeof params.turfId === 'string') {
+      setResolvedTurfId(params.turfId);
+    }
+  }, [params?.turfId]);
+
 
   useEffect(() => {
-    if (turfId) {
+    if (resolvedTurfId) {
       setIsLoading(true);
       try {
-        const currentTurf = fetchTurfById(turfId);
+        const currentTurf = fetchTurfById(resolvedTurfId);
         if (currentTurf) {
           setTurf(currentTurf);
-          const fetchedSlots = fetchSlotsForTurf(turfId).sort((a,b) => {
+          const fetchedSlots = fetchSlotsForTurf(resolvedTurfId).sort((a,b) => {
             const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
             if (dateComparison !== 0) return dateComparison;
             const startTimeA = a.timeRange.split(' - ')[0];
@@ -79,7 +85,7 @@ export default function TurfDetailPage() {
           });
           setAllSlots(fetchedSlots);
           
-          const fetchedReviews = fetchReviewsForTurf(turfId);
+          const fetchedReviews = fetchReviewsForTurf(resolvedTurfId);
           setReviews(fetchedReviews);
           if (currentTurf.images && currentTurf.images.length > 0) {
             setSelectedImage(currentTurf.images[0]);
@@ -100,7 +106,7 @@ export default function TurfDetailPage() {
         setIsLoading(false);
       }
     }
-  }, [turfId, toast, user]);
+  }, [resolvedTurfId, toast, user]);
 
   // Effect to filter slots when selectedCalendarDate or allSlots changes
   useEffect(() => {
@@ -140,8 +146,8 @@ export default function TurfDetailPage() {
   };
 
   const handleConfirmMultipleBookings = async () => {
-    if (!user || !turf || pendingBookingSlots.length === 0) {
-      toast({ title: "Error", description: "No slots selected or user not logged in.", variant: "destructive" });
+    if (!user || !turf || pendingBookingSlots.length === 0 || !resolvedTurfId) {
+      toast({ title: "Error", description: "No slots selected, user not logged in, or turf ID missing.", variant: "destructive" });
       setIsBookingDialogOpen(false);
       return;
     }
@@ -152,7 +158,7 @@ export default function TurfDetailPage() {
 
     for (const slot of pendingBookingSlots) {
       const newBookingData: Omit<Booking, 'id' | 'createdAt'> = {
-          turfId: turf.id,
+          turfId: turf.id, // Use turf.id which is confirmed to exist
           playerId: user.uid,
           slotId: slot.id,
           turfName: turf.name,
@@ -199,8 +205,8 @@ export default function TurfDetailPage() {
   };
   
   const handleReviewSubmitted = (rating: number, comment: string) => {
-    if (!user || !turf) {
-        toast({ title: "Error", description: "Cannot submit review.", variant: "destructive" });
+    if (!user || !turf || !resolvedTurfId) {
+        toast({ title: "Error", description: "Cannot submit review. User, turf, or turf ID missing.", variant: "destructive" });
         return;
     }
     if (hasUserReviewed) {
@@ -209,7 +215,7 @@ export default function TurfDetailPage() {
     }
     try {
         const reviewPayload = { userId: user.uid, userName: user.name, rating, comment };
-        addReviewToDB(turf.id, reviewPayload);
+        addReviewToDB(turf.id, reviewPayload); // Use turf.id which is confirmed
         const updatedReviews = fetchReviewsForTurf(turf.id);
         setReviews(updatedReviews);
         setHasUserReviewed(true);
@@ -221,6 +227,15 @@ export default function TurfDetailPage() {
         console.error("Error submitting review:", error);
         toast({ title: "Review Failed", description: "Could not submit your review.", variant: "destructive"});
     }
+  }
+
+  if (!resolvedTurfId && !isLoading) { // If turfId hasn't resolved yet and we are not in initial load due to turfId
+    return (
+      <div className="flex items-center justify-center h-64">
+        <PageLoaderIcon className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Loading turf identifier...</p>
+      </div>
+    );
   }
 
   if (isLoading) {
@@ -423,7 +438,8 @@ export default function TurfDetailPage() {
                       onClick={() => {
                         if (!user) {
                             toast({title: "Login Required", description: "Please log in to confirm your booking.", variant: "default"});
-                            // Optionally, you could redirect to login here: router.push('/login?redirect=/player/turfs/' + turfId);
+                            // Optionally, you could redirect to login here if resolvedTurfId is available:
+                            // if (resolvedTurfId) router.push(`/login?redirect=/player/turfs/${resolvedTurfId}`);
                             return;
                         }
                         setIsBookingDialogOpen(true);
@@ -437,7 +453,10 @@ export default function TurfDetailPage() {
               )}
                {!user && selectedCalendarDate && slotsForSelectedDate.length > 0 && pendingBookingSlots.length === 0 && (
                   <p className="text-center text-muted-foreground mt-6">
-                    Please <Link href={`/login?redirect=/player/turfs/${turfId}`} className="text-primary hover:underline font-medium">login</Link> to select and book slots.
+                    Please {resolvedTurfId ? 
+                      <Link href={`/login?redirect=/player/turfs/${resolvedTurfId}`} className="text-primary hover:underline font-medium">login</Link> : 
+                      <span className="text-primary font-medium">login</span>
+                    } to select and book slots.
                   </p>
                 )}
             </CardContent>
@@ -446,8 +465,8 @@ export default function TurfDetailPage() {
         </div>
 
         <div className="space-y-6">
-          {reviews.length > 0 && (
-             <AiReviewSummary turfId={turf.id} reviews={reviews} />
+          {reviews.length > 0 && resolvedTurfId && (
+             <AiReviewSummary turfId={resolvedTurfId} reviews={reviews} />
           )}
          
           <Card className="shadow-lg">
@@ -481,11 +500,17 @@ export default function TurfDetailPage() {
                 <div className="text-center py-4">
                     <MessageSquareWarning className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
                     <p className="text-muted-foreground mb-4">Please log in to share your experience.</p>
-                    <Link href={`/login?redirect=/player/turfs/${turfId}`}>
-                        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                    {resolvedTurfId ? (
+                       <Link href={`/login?redirect=/player/turfs/${resolvedTurfId}`}>
+                            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                                <LogIn className="mr-2 h-4 w-4" /> Login to Review
+                            </Button>
+                        </Link>
+                    ) : (
+                         <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled>
                             <LogIn className="mr-2 h-4 w-4" /> Login to Review
                         </Button>
-                    </Link>
+                    )}
                 </div>
               ) : hasUserReviewed ? (
                  <div className="text-center py-4">
@@ -493,8 +518,10 @@ export default function TurfDetailPage() {
                     <p className="text-foreground">Thanks for your feedback!</p>
                     <p className="text-sm text-muted-foreground">You have already reviewed this turf.</p>
                 </div>
+              ) : resolvedTurfId ? ( // Ensure resolvedTurfId is available for ReviewForm
+                <ReviewForm turfId={resolvedTurfId} onSubmitReview={handleReviewSubmitted} />
               ) : (
-                <ReviewForm turfId={turf.id} onSubmitReview={handleReviewSubmitted} />
+                <p className="text-muted-foreground">Loading review form...</p>
               )}
             </CardContent>
           </Card>
