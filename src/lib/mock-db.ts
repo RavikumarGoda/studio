@@ -133,12 +133,15 @@ export const getSlotsForTurf = (turfId: string): Slot[] => {
 
 export const updateSlotsForTurf = (turfId: string, updatedSlotsData: Slot[]): void => {
     mockSlotsDB = mockSlotsDB.filter(s => s.turfId !== turfId); // Remove old
-    mockSlotsDB.push(...updatedSlotsData.map(s => ({ // Add new/updated
-        ...s, 
-        turfId, // ensure turfId is set
-        createdAt: s.createdAt ? new Date(s.createdAt) : new Date(), // ensure date object
-        id: s.id.startsWith('new-slot-') ? `slot-${turfId}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` : s.id // generate better ID if new
-    })));
+    mockSlotsDB.push(...updatedSlotsData.map(s => {
+        const isNewOrTempSlot = s.id.startsWith('new-slot-') || s.id.startsWith('default-slot-');
+        return {
+            ...s, 
+            turfId, // ensure turfId is set
+            createdAt: s.createdAt ? new Date(s.createdAt) : new Date(), // ensure date object
+            id: isNewOrTempSlot ? `slot-${turfId}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` : s.id // generate ID if new/temp
+        };
+    }));
 }
 
 // Mock data for Reviews
@@ -234,3 +237,4 @@ export const initializeMockData = () => {
     // If you had more complex initialization logic, it would go here.
     console.log("Mock DB re-initialized");
 };
+

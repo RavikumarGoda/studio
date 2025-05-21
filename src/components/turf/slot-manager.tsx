@@ -1,3 +1,4 @@
+
 // src/components/turf/slot-manager.tsx
 "use client";
 
@@ -15,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CalendarDays, Clock, Trash2, PlusCircle, AlertTriangle, Loader2 } from 'lucide-react';
-import { format, addDays, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns'; // Removed addDays as it's not used directly here for generation logic
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -40,11 +41,42 @@ const commonTimeRanges = [
   "10:00 AM - 11:00 AM", "11:00 AM - 12:00 PM", "12:00 PM - 01:00 PM", "01:00 PM - 02:00 PM",
   "02:00 PM - 03:00 PM", "03:00 PM - 04:00 PM", "04:00 PM - 05:00 PM", "05:00 PM - 06:00 PM",
   "06:00 PM - 07:00 PM", "07:00 PM - 08:00 PM", "08:00 PM - 09:00 PM", "09:00 PM - 10:00 PM",
-  "10:00 PM - 11:00 PM",
+  "10:00 PM - 11:00 PM", "11:00 PM - 12:00 AM",
 ];
 
+// Helper to format hour for time range string
+function formatHourForTimeRange(hour: number): string {
+    const ampm = hour >= 12 && hour < 24 ? 'PM' : 'AM';
+    let h = hour % 12;
+    if (h === 0) h = 12; // For 12 AM (midnight) and 12 PM (noon)
+    return `${String(h).padStart(2, '0')}:00 ${ampm}`;
+}
+
+// Helper to generate default slots from 7 AM to 12 PM (noon)
+function generateDefaultSlots(date: string, turfId: string): Slot[] {
+    const defaults: Slot[] = [];
+    const startHour = 7; // 7 AM
+    const endLoopHour = 11;  // Loop until 11 for slot 11:00 AM - 12:00 PM
+
+    for (let i = startHour; i <= endLoopHour; i++) {
+        const startTime = formatHourForTimeRange(i);
+        const endTime = formatHourForTimeRange(i + 1); // For 11, i+1 is 12 (12 PM)
+        const timeRange = `${startTime} - ${endTime}`;
+        defaults.push({
+            id: `default-slot-${date}-${i}-${Math.random().toString(16).slice(2)}`, // Temporary ID
+            turfId: turfId,
+            date: date,
+            timeRange: timeRange,
+            status: 'available',
+            createdAt: new Date(),
+        });
+    }
+    return defaults;
+}
+
+
 export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerProps) {
-  const [slots, setSlots] = useState<Slot[]>(initialSlots);
+  const [slots, setSlots] = useState<Slot[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [newSlotTimeRange, setNewSlotTimeRange] = useState<string>(commonTimeRanges[0]);
   const [newSlotStatus, setNewSlotStatus] = useState<Slot['status']>('available');
@@ -53,8 +85,31 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   const { toast } = useToast();
 
   useEffect(() => {
-    setSlots(initialSlots); // Sync with parent if initialSlots change
-  }, [initialSlots]);
+    const dbSlotsForSelectedDate = initialSlots.filter(slot => slot.date === selectedDate);
+
+    if (dbSlotsForSelectedDate.length > 0) {
+      // If DB has slots for this date, use all initialSlots (which includes those for other dates too)
+      // The slotsForSelectedDate computed variable will filter for display.
+      // Ensure the entire `slots` state is correctly sorted.
+      setSlots([...initialSlots].sort((a,b) => {
+        const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+        if (dateComparison !== 0) return dateComparison;
+        return a.timeRange.localeCompare(b.timeRange);
+      }));
+    } else {
+      // If DB has no slots for this specific date, generate default ones for this date.
+      const defaultSlotsForDate = generateDefaultSlots(selectedDate, turf.id);
+      
+      // Combine these new default slots with any slots from initialSlots that are for *other* dates.
+      const slotsFromOtherDates = initialSlots.filter(slot => slot.date !== selectedDate);
+      
+      setSlots([...slotsFromOtherDates, ...defaultSlotsForDate].sort((a,b) => {
+         const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+        if (dateComparison !== 0) return dateComparison;
+        return a.timeRange.localeCompare(b.timeRange);
+      }));
+    }
+  }, [initialSlots, selectedDate, turf.id]);
 
   const handleDateChange = (e: ChangeEvent<HTMLInputElement>) => {
     setSelectedDate(e.target.value);
@@ -101,7 +156,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
     setIsSubmitting(true);
     try {
       await onSlotsUpdate(slots); // Call parent's save function
-      // Parent should show toast on success/failure
+      // Parent should show toast on success/failure through its own logic
     } catch (error) {
         // This catch is a fallback if onSlotsUpdate itself throws an error not handled by the parent
         toast({title: "Error Saving Slots", description: "An unexpected error occurred.", variant: "destructive"})
@@ -111,27 +166,27 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   };
   
   const slotsForSelectedDate = slots.filter(slot => slot.date === selectedDate)
-    .sort((a,b) => a.timeRange.localeCompare(b.timeRange));
+    .sort((a,b) => a.timeRange.localeCompare(b.timeRange)); // Sorting here is mostly for display order within the day
 
   return (
     <Card className="shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl">Manage Slots for {turf.name}</CardTitle>
-        <CardDescription>Add, edit, or remove time slots for your turf. Make sure to save your changes.</CardDescription>
+        <CardDescription>Add, edit, or remove time slots for your turf. Default slots from 7 AM to 12 PM are generated if none exist for a day. Make sure to save your changes.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Add New Slot Section */}
         <Card className="bg-muted/30 p-4">
-          <h3 className="text-lg font-semibold mb-3">Add New Slot</h3>
+          <h3 className="text-lg font-semibold mb-3">Add Custom Slot</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
-              <Label htmlFor="slot-date">Date</Label>
-              <Input type="date" id="slot-date" value={selectedDate} onChange={handleDateChange} min={format(new Date(), 'yyyy-MM-dd')} />
+              <Label htmlFor="slot-date-custom">Date</Label>
+              <Input type="date" id="slot-date-custom" value={selectedDate} onChange={handleDateChange} min={format(new Date(), 'yyyy-MM-dd')} />
             </div>
             <div>
               <Label htmlFor="slot-time">Time Range</Label>
               <Select value={newSlotTimeRange} onValueChange={setNewSlotTimeRange}>
-                <SelectTrigger id="slot-time"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="slot-time"><SelectValue placeholder="Select time range" /></SelectTrigger>
                 <SelectContent>
                   {commonTimeRanges.map(range => <SelectItem key={range} value={range}>{range}</SelectItem>)}
                 </SelectContent>
@@ -140,7 +195,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
             <div>
               <Label htmlFor="slot-status-new">Initial Status</Label>
               <Select value={newSlotStatus} onValueChange={(val: Slot['status']) => setNewSlotStatus(val)}>
-                <SelectTrigger id="slot-status-new"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="slot-status-new"><SelectValue placeholder="Select status"/></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="available">Available</SelectItem>
                   <SelectItem value="maintenance">Maintenance</SelectItem>
@@ -149,7 +204,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
             </div>
           </div>
            <Button onClick={addSlot} className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Slot for {format(parseISO(selectedDate), 'MMM d')}
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Custom Slot for {format(parseISO(selectedDate), 'MMM d')}
             </Button>
         </Card>
 
@@ -195,7 +250,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-4">No slots configured for this date.</p>
+            <p className="text-muted-foreground text-center py-4">No slots configured for this date. (Defaults should appear if none saved)</p>
           )}
         </div>
 
@@ -232,3 +287,4 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
     </Card>
   );
 }
+
