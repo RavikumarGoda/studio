@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -64,7 +65,17 @@ const summarizeTurfReviewsFlow = ai.defineFlow(
     outputSchema: SummarizeTurfReviewsOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    try {
+      const {output} = await prompt(input);
+      if (output) {
+        return output;
+      }
+      // Fallback if output is unexpectedly null or undefined but no error was thrown
+      return { summary: "The AI summary could not be generated at this time. Please check individual reviews." };
+    } catch (error) {
+      console.error("Error in summarizeTurfReviewsFlow:", error);
+      // Return a user-friendly error message
+      return { summary: "The AI couldn't whip up a summary this time due to a temporary issue. Maybe try checking the individual reviews?" };
+    }
   }
 );
