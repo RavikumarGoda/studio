@@ -506,12 +506,14 @@ export default function TurfDetailPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Your Booking</DialogTitle>
-            <DialogDescription>
-              You are about to book the following slots for <strong>{turf.name}</strong> on <strong>{selectedCalendarDate ? format(selectedCalendarDate, "PPP") : ''}</strong>:
-              <ul className="list-disc list-inside my-3 space-y-1 text-sm text-foreground">
-                {pendingBookingSlots.map(slot => <li key={slot.id}>{slot.timeRange}</li>)}
-              </ul>
-              Total Amount: <IndianRupee className="inline h-4 w-4 align-[-2px]"/>{totalBookingAmount.toLocaleString()}. Proceed?
+            <DialogDescription asChild>
+              <div>
+                You are about to book the following slots for <strong>{turf.name}</strong> on <strong>{selectedCalendarDate ? format(selectedCalendarDate, "PPP") : ''}</strong>:
+                <ul className="list-disc list-inside my-3 space-y-1 text-sm text-foreground">
+                  {pendingBookingSlots.map(slot => <li key={slot.id}>{slot.timeRange}</li>)}
+                </ul>
+                Total Amount: <IndianRupee className="inline h-4 w-4 align-[-2px]"/>{totalBookingAmount.toLocaleString()}. Proceed?
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
