@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, parseISO, isFuture, isEqual, startOfDay } from 'date-fns';
+import { format, parseISO, isEqual, startOfDay } from 'date-fns'; // Removed isFuture
 import { cn } from "@/lib/utils";
 
 import {
@@ -371,7 +371,7 @@ export default function TurfDetailPage() {
                       mode="single"
                       selected={selectedCalendarDate}
                       onSelect={setSelectedCalendarDate}
-                      disabled={(date) => !isFuture(date) && !isEqual(startOfDay(date), startOfDay(new Date()))}
+                      // removed disabled prop to allow selection of any date
                       initialFocus
                     />
                   </PopoverContent>
