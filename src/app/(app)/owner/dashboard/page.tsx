@@ -1,3 +1,4 @@
+
 // src/app/(app)/owner/dashboard/page.tsx
 "use client";
 
@@ -5,21 +6,54 @@ import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ShieldCheck, PlusCircle, CalendarDays, BarChart3 } from 'lucide-react';
+import { ShieldCheck, PlusCircle, CalendarDays, BarChart3, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import type { Turf } from '@/types';
+import { getOwnerTurfs as fetchOwnerTurfsFromDB } from '@/lib/mock-db'; // Import the function
 
 export default function OwnerDashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const [ownerTurfs, setOwnerTurfs] = useState<Turf[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
-  if (!user) {
-    return <div>Loading user data...</div>; // Or a redirect
+  // Placeholder stats - these could be fetched as well
+  const stats = {
+    upcomingBookings: 5, 
+    totalRevenue: 12500,
+  };
+
+  useEffect(() => {
+    if (!authLoading && user && user.role === 'owner') {
+      setIsLoadingData(true);
+      try {
+        const turfs = fetchOwnerTurfsFromDB(user.uid);
+        setOwnerTurfs(turfs);
+      } catch (error) {
+        console.error("Error fetching owner turfs for dashboard:", error);
+        // Potentially set an error state or toast
+      } finally {
+        setIsLoadingData(false);
+      }
+    } else if (!authLoading) {
+      setIsLoadingData(false);
+    }
+  }, [user, authLoading]);
+
+  if (authLoading || isLoadingData) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Loading dashboard...</p>
+      </div>
+    );
   }
 
-  // Placeholder stats
-  const stats = {
-    totalTurfs: 2,
-    upcomingBookings: 5,
-    totalRevenue: 12500, // Example in currency units
-  };
+  if (!user) {
+    // This case should ideally be handled by layout redirecting to login
+    return <div>Redirecting to login...</div>;
+  }
+
+  const canAddTurf = ownerTurfs.length === 0;
 
   return (
     <div className="space-y-8">
@@ -35,7 +69,7 @@ export default function OwnerDashboardPage() {
             <CardDescription>Number of turfs you manage.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold text-primary">{stats.totalTurfs}</p>
+            <p className="text-4xl font-bold text-primary">{ownerTurfs.length}</p>
           </CardContent>
         </Card>
         <Card className="shadow-lg">
@@ -74,20 +108,22 @@ export default function OwnerDashboardPage() {
           </Card>
         </Link>
 
-        <Link href="/owner/turfs/new" passHref>
-          <Card className="shadow-lg hover:shadow-xl transition-shadow cursor-pointer h-full flex flex-col">
-            <CardHeader className="flex-grow">
-              <CardTitle className="flex items-center gap-2">
-                <PlusCircle className="h-6 w-6 text-primary" />
-                Add New Turf
-              </CardTitle>
-              <CardDescription>List a new turf on TOD (TurfOnDemand).</CardDescription>
-            </CardHeader>
-             <CardContent>
-                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Add Turf</Button>
-            </CardContent>
-          </Card>
-        </Link>
+        {canAddTurf && (
+          <Link href="/owner/turfs/new" passHref>
+            <Card className="shadow-lg hover:shadow-xl transition-shadow cursor-pointer h-full flex flex-col">
+              <CardHeader className="flex-grow">
+                <CardTitle className="flex items-center gap-2">
+                  <PlusCircle className="h-6 w-6 text-primary" />
+                  Add New Turf
+                </CardTitle>
+                <CardDescription>List a new turf on TOD (TurfOnDemand).</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Add Turf</Button>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
 
         <Link href="/owner/bookings" passHref>
           <Card className="shadow-lg hover:shadow-xl transition-shadow cursor-pointer h-full flex flex-col">
