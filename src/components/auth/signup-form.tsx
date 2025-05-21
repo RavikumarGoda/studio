@@ -56,7 +56,7 @@ export function SignupForm() {
     <Card className="w-full shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl">Create an Account</CardTitle>
-        <CardDescription>Join TurfLink today to find or list turfs.</CardDescription>
+        <CardDescription>Join TOD (TurfOnDemand) today to find or list turfs.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>

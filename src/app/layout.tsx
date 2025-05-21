@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'TurfLink',
-  description: 'Book your favorite turfs with ease.',
+  title: 'TOD (TurfOnDemand)',
+  description: 'Your on-demand turf booking solution.',
 };
 
 export default function RootLayout({

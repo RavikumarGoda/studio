@@ -33,6 +33,7 @@ export default function NewTurfPage() {
         amenities: data.amenities,
         description: data.description,
         isVisible: data.isVisible,
+        ownerPhoneNumber: data.ownerPhoneNumber,
         // averageRating and reviewCount can be omitted, addTurf will default them
       };
 
@@ -43,7 +44,7 @@ export default function NewTurfPage() {
 
       toast({
         title: "Turf Added Successfully!",
-        description: `${data.name} has been listed on TurfLink.`,
+        description: `${data.name} has been listed on TOD (TurfOnDemand).`,
       });
       router.push('/owner/turfs');
     } catch (error) {

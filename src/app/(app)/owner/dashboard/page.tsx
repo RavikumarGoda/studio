@@ -81,7 +81,7 @@ export default function OwnerDashboardPage() {
                 <PlusCircle className="h-6 w-6 text-primary" />
                 Add New Turf
               </CardTitle>
-              <CardDescription>List a new turf on TurfLink.</CardDescription>
+              <CardDescription>List a new turf on TOD (TurfOnDemand).</CardDescription>
             </CardHeader>
              <CardContent>
                 <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Add Turf</Button>

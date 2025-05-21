@@ -57,7 +57,7 @@ export default function LandingPage() {
             Find & Book Your Perfect Turf
           </h1>
           <p className="text-xl text-foreground/80 mb-10 max-w-3xl mx-auto">
-            TurfLink connects players with top-quality sports turfs. Owners can easily list and manage their facilities.
+            TOD (TurfOnDemand) connects players with top-quality sports turfs. Owners can easily list and manage their facilities.
           </p>
           <div className="space-x-4">
             <Link href="/player/turfs" passHref>
@@ -76,7 +76,7 @@ export default function LandingPage() {
         {/* Features Section */}
         <section className="bg-white py-16">
           <div className="container mx-auto px-4 md:px-6">
-            <h2 className="text-3xl font-bold text-center text-foreground mb-12">Why Choose TurfLink?</h2>
+            <h2 className="text-3xl font-bold text-center text-foreground mb-12">Why Choose TOD?</h2>
             <div className="grid md:grid-cols-3 gap-8">
               <div className="p-6 rounded-lg shadow-lg border border-border">
                 <Search className="h-12 w-12 text-primary mb-4" />
@@ -114,7 +114,7 @@ export default function LandingPage() {
       <footer className="bg-gray-100 text-foreground/70 py-8 text-center border-t">
         <div className="container mx-auto px-4 md:px-6">
           <Logo className="justify-center mb-4"/>
-          <p>&copy; {new Date().getFullYear()} TurfLink. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} TOD (TurfOnDemand). All rights reserved.</p>
           <p className="text-sm">Your ultimate destination for turf booking.</p>
         </div>
       </footer>
