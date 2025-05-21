@@ -2,83 +2,20 @@
 // src/lib/mock-db.ts
 import type { Turf, Slot, Booking, Review } from '@/types';
 
-// Initial mock data for turfs
-let mockTurfsDB: Turf[] = [
-  {
-    id: 'turf-visible-player',
-    ownerId: 'another-owner-uid', 
-    name: 'Victory Playfield',
-    location: 'Indiranagar, Bangalore',
-    pricePerHour: 1000,
-    images: ['https://placehold.co/600x400.png'],
-    amenities: ['restroom', 'floodlights'],
-    description: 'Spacious cricket and football turf, perfect for corporate matches.',
-    isVisible: true,
-    createdAt: new Date(2023, 9, 5),
-    averageRating: 4.2,
-    reviewCount: 18,
-  },
-  {
-    id: 'turf-hidden-player',
-    ownerId: 'another-owner-uid-2',
-    name: 'Hidden Gem Community Field',
-    location: 'Whitefield, Bangalore',
-    pricePerHour: 800,
-    images: ['https://placehold.co/600x400.png'],
-    amenities: ['parking'],
-    description: 'A quiet and well-maintained field for practice sessions.',
-    isVisible: false,
-    createdAt: new Date(2023, 8, 20),
-    averageRating: 4.0,
-    reviewCount: 5,
-  },
-   {
-    id: 'featured-turf-id',
-    ownerId: 'owner-f',
-    name: 'City Sports Arena',
-    location: 'Downtown, Metropolis',
-    pricePerHour: 1500,
-    images: ['https://placehold.co/800x500.png', 'https://placehold.co/400x300.png'],
-    amenities: ['parking', 'restroom', 'floodlights', 'wifi'],
-    description: 'The best 5-a-side turf in downtown. Features high-quality turf, excellent lighting, and spectator seating. Ideal for both casual play and organized events.',
-    isVisible: true,
-    createdAt: new Date(2023, 7, 10),
-    averageRating: 4.7,
-    reviewCount: 42,
-  },
-];
+// Initial mock data for turfs - starting empty
+let mockTurfsDB: Turf[] = [];
 
-// Mock data for Slots
-let mockSlotsDB: Slot[] = [
-    { id: 'slot-1-1', turfId: 'turf-1', date: '2024-07-20', timeRange: '09:00 AM - 10:00 AM', status: 'available', createdAt: new Date() },
-    { id: 'slot-1-2', turfId: 'turf-1', date: '2024-07-20', timeRange: '10:00 AM - 11:00 AM', status: 'booked', bookedBy: 'player-x', createdAt: new Date() },
-    { id: 'slot-1-3', turfId: 'turf-1', date: '2024-07-21', timeRange: '06:00 PM - 07:00 PM', status: 'available', createdAt: new Date() },
-    { id: 'slot-2-1', turfId: 'turf-2', date: '2024-07-22', timeRange: '05:00 PM - 06:00 PM', status: 'maintenance', createdAt: new Date() },
-    { id: 'slot-f-1', turfId: 'featured-turf-id', date: '2024-07-22', timeRange: '05:00 PM - 06:00 PM', status: 'available', createdAt: new Date() },
-    { id: 'slot-f-2', turfId: 'featured-turf-id', date: '2024-07-22', timeRange: '06:00 PM - 07:00 PM', status: 'available', createdAt: new Date() },
-];
+// Mock data for Slots - starting empty
+let mockSlotsDB: Slot[] = [];
 
-// Mock data for Reviews
-let mockReviewsDB: Review[] = [
-    { id: 'review-1-1', turfId: 'turf-1', userId: 'player-1', userName: 'John Doe', rating: 5, comment: 'Amazing turf, well maintained!', createdAt: new Date(2024, 5, 10) },
-    { id: 'review-1-2', turfId: 'turf-1', userId: 'player-2', userName: 'Jane Smith', rating: 4, comment: 'Good facilities, but can get crowded.', createdAt: new Date(2024, 6, 1) },
-    { id: 'review-f-1', turfId: 'featured-turf-id', userId: 'player-3', userName: 'Alex Ray', rating: 5, comment: 'Best turf in the city, hands down!', createdAt: new Date(2024, 6, 15) },
-];
+// Mock data for Reviews - starting empty
+let mockReviewsDB: Review[] = [];
 
-// Mock data for Bookings
-let mockBookingsDB: Booking[] = [
-  { id: 'booking-1', turfId: 'turf-1', playerId: 'mock-player-uid', slotId: 'slot-1-1', turfName: 'Green Kick Arena', turfLocation: 'Koramangala, Bangalore', timeRange: '09:00 AM - 10:00 AM', bookingDate: '2024-07-20', status: 'approved', paymentStatus: 'paid', totalAmount: 1200, createdAt: new Date(2024, 6, 10)},
-  { id: 'booking-p1', turfId: 'turf-1', playerId: 'mock-owner-uid', slotId: 'slot-1-p1', turfName: 'Green Kick Arena', timeRange: '06:00 PM - 07:00 PM', bookingDate: '2024-07-21', status: 'pending', paymentStatus: 'unpaid', totalAmount: 1200, createdAt: new Date(2024, 6, 18)},
-  { id: 'booking-p2', turfId: 'turf-2', playerId: 'mock-owner-uid', slotId: 'slot-2-p2', turfName: 'Net Masters Badminton', timeRange: '07:00 PM - 08:00 PM', bookingDate: '2024-07-23', status: 'pending', paymentStatus: 'unpaid', totalAmount: 500, createdAt: new Date(2024, 6, 19)},
-  { id: 'booking-c1', turfId: 'turf-1', playerId: 'player-D', slotId: 'slot-1-c1', turfName: 'Green Kick Arena', timeRange: '11:00 AM - 12:00 PM', bookingDate: '2024-07-25', status: 'cancelled', paymentStatus: 'unpaid', totalAmount: 1200, createdAt: new Date(2024, 6, 18)},
-  { id: 'booking-x1', turfId: 'turf-visible-player', playerId: 'player-E', slotId: 'slot-x-1', turfName: 'Victory Playfield', timeRange: '10:00 AM - 11:00 AM', bookingDate: '2024-07-24', status: 'approved', paymentStatus: 'paid', totalAmount: 900, createdAt: new Date(2024, 6, 17)},
-  { id: 'booking-2', turfId: 'featured-turf-id', playerId: 'mock-player-uid', slotId: 'slot-f-1', turfName: 'City Sports Arena', turfLocation: 'Downtown, Metropolis', timeRange: '05:00 PM - 06:00 PM', bookingDate: '2024-07-22', status: 'pending', paymentStatus: 'unpaid', totalAmount: 1500, createdAt: new Date(2024, 6, 15)},
-  { id: 'booking-3', turfId: 'turf-visible-player', playerId: 'mock-player-uid', slotId: 'slot-vp-1', turfName: 'Victory Playfield', turfLocation: 'Indiranagar, Bangalore', timeRange: '07:00 PM - 08:00 PM', bookingDate: '2024-06-28', status: 'completed', paymentStatus: 'paid', totalAmount: 1000, createdAt: new Date(2024, 5, 20)},
-  { id: 'booking-4', turfId: 'turf-1', playerId: 'mock-player-uid', slotId: 'slot-1-x', turfName: 'Green Kick Arena', turfLocation: 'Koramangala, Bangalore', timeRange: '11:00 AM - 12:00 PM', bookingDate: '2024-07-25', status: 'cancelled', paymentStatus: 'unpaid', totalAmount: 1200, createdAt: new Date(2024, 6, 18)},
-];
+// Mock data for Bookings - starting empty
+let mockBookingsDB: Booking[] = [];
 
-// ID Counters
-let mockTurfIdCounter = mockTurfsDB.length + 1 + Date.now() % 1000; // Initialize to be likely unique
+// ID Counters - will start based on empty arrays + a small random factor for uniqueness in a session
+let mockTurfIdCounter = mockTurfsDB.length + 1 + Date.now() % 1000;
 let mockSlotIdCounter = mockSlotsDB.length + 1 + Date.now() % 1000;
 let mockReviewIdCounter = mockReviewsDB.length + 1 + Date.now() % 1000;
 let mockBookingIdCounter = mockBookingsDB.length + 1 + Date.now() % 1000;
@@ -112,7 +49,7 @@ export const addTurf = (turfData: Omit<Turf, 'id' | 'createdAt' | 'ownerId'>, ow
     reviewCount: turfData.reviewCount === undefined ? 0 : turfData.reviewCount,
   };
   mockTurfsDB.push(newTurf);
-  return { ...newTurf }; 
+  return { ...newTurf };
 };
 
 export const updateTurf = (turfId: string, updates: Partial<Omit<Turf, 'id' | 'ownerId' | 'createdAt'>>): Turf | undefined => {
@@ -130,15 +67,15 @@ export const getSlotsForTurf = (turfId: string): Slot[] => {
 }
 
 export const updateSlotsForTurf = (turfId: string, updatedSlotsData: Slot[]): void => {
-    mockSlotsDB = mockSlotsDB.filter(s => s.turfId !== turfId); 
+    mockSlotsDB = mockSlotsDB.filter(s => s.turfId !== turfId);
     mockSlotsDB.push(...updatedSlotsData.map(s => {
         const isNewOrTempSlot = s.id.startsWith('new-slot-') || s.id.startsWith('default-slot-');
         const newId = isNewOrTempSlot ? `slot-${turfId}-${mockSlotIdCounter++}` : s.id;
         return {
             ...s,
             id: newId,
-            turfId, 
-            createdAt: s.createdAt ? new Date(s.createdAt) : new Date(), 
+            turfId,
+            createdAt: s.createdAt ? new Date(s.createdAt) : new Date(),
         };
     }));
 }
@@ -159,7 +96,7 @@ export const addReviewForTurf = (turfId: string, reviewData: Omit<Review, 'id' |
 
     const turf = mockTurfsDB.find(t => t.id === turfId);
     if (turf) {
-        const reviewsForThisTurf = getReviewsForTurf(turfId); 
+        const reviewsForThisTurf = getReviewsForTurf(turfId);
         const totalRating = reviewsForThisTurf.reduce((sum, r) => sum + r.rating, 0);
         turf.averageRating = reviewsForThisTurf.length > 0 ? parseFloat((totalRating / reviewsForThisTurf.length).toFixed(1)) : 0;
         turf.reviewCount = reviewsForThisTurf.length;
@@ -203,7 +140,7 @@ export const addBooking = (bookingData: Omit<Booking, 'id' | 'createdAt'>): Book
 // Helper to get player name
 export const getMockPlayerName = (playerId: string) => {
     if (playerId === 'mock-player-uid') return 'Player User';
-    if (playerId === 'mock-owner-uid') return 'Owner User'; 
+    if (playerId === 'mock-owner-uid') return 'Owner User';
     return `Player (...${playerId.slice(-4)})`;
 };
 
@@ -213,7 +150,15 @@ export const getAllMockBookings = () => mockBookingsDB;
 export const getAllMockReviews = () => mockReviewsDB;
 
 export const initializeMockData = () => {
-    console.log("Mock DB re-initialized (no specific reset logic implemented beyond initial state)");
+    // Reset all data arrays to empty
+    mockTurfsDB = [];
+    mockSlotsDB = [];
+    mockReviewsDB = [];
+    mockBookingsDB = [];
+    // Reset counters
+    mockTurfIdCounter = 1 + Date.now() % 1000;
+    mockSlotIdCounter = 1 + Date.now() % 1000;
+    mockReviewIdCounter = 1 + Date.now() % 1000;
+    mockBookingIdCounter = 1 + Date.now() % 1000;
+    console.log("Mock DB re-initialized and wiped clean.");
 };
-
-    
