@@ -27,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { UploadCloud, XCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useState, ChangeEvent, useEffect } from "react";
+import { cn } from "@/lib/utils"; // Added import
 
 const turfFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -416,3 +417,4 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
     </Card>
   );
 }
+
