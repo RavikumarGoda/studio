@@ -10,7 +10,7 @@ import { ShieldCheck, PlusCircle, CalendarDays, BarChart3, Loader2 } from 'lucid
 import { useState, useEffect } from 'react';
 import type { Turf, Booking } from '@/types';
 import { getOwnerTurfs as fetchOwnerTurfsFromDB, getBookingsForOwnerTurfs } from '@/lib/mock-db';
-import { isFuture, isSameMonth, parseISO } from 'date-fns';
+import { isFuture, isSameMonth, parseISO, isToday } from 'date-fns';
 
 export default function OwnerDashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -47,20 +47,22 @@ export default function OwnerDashboardPage() {
 
   useEffect(() => {
     // Calculate upcoming bookings
-    const upcoming = ownerBookings.filter(booking =>
-      (booking.status === 'approved' || booking.status === 'pending') &&
-      isFuture(parseISO(booking.bookingDate))
-    ).length;
+    const upcoming = ownerBookings.filter(booking => {
+      const bookingDateObj = parseISO(booking.bookingDate);
+      return (booking.status === 'approved' || booking.status === 'pending') &&
+             (isToday(bookingDateObj) || isFuture(bookingDateObj));
+    }).length;
     setUpcomingBookingsCount(upcoming);
 
     // Calculate current month revenue
     const now = new Date();
     const revenue = ownerBookings
-      .filter(booking =>
-        (booking.status === 'approved' || booking.status === 'completed') &&
-        isSameMonth(parseISO(booking.bookingDate), now) &&
-        booking.totalAmount
-      )
+      .filter(booking => {
+        const bookingDateObj = parseISO(booking.bookingDate);
+        return (booking.status === 'approved' || booking.status === 'completed') &&
+               isSameMonth(bookingDateObj, now) &&
+               booking.totalAmount;
+      })
       .reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
     setCurrentMonthRevenue(revenue);
 
@@ -101,7 +103,7 @@ export default function OwnerDashboardPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Upcoming Bookings</CardTitle>
-            <CardDescription>Future approved/pending bookings.</CardDescription>
+            <CardDescription>Future & today's approved/pending bookings.</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-4xl font-bold text-primary">{upcomingBookingsCount}</p>

@@ -2,80 +2,110 @@
 // src/lib/mock-db.ts
 import type { Turf, Slot, Booking, Review } from '@/types';
 
-// Initial mock data for turfs - starting empty
-let mockTurfsDB: Turf[] = [];
+// Define the shape of our mock DB on the global object for HMR
+declare global {
+  var __mockDB_TOD: {
+    turfs: Turf[];
+    slots: Slot[];
+    reviews: Review[];
+    bookings: Booking[];
+    turfIdCounter: number;
+    slotIdCounter: number;
+    reviewIdCounter: number;
+    bookingIdCounter: number;
+    initialized: boolean;
+  } | undefined;
+}
 
-// Mock data for Slots - starting empty
-let mockSlotsDB: Slot[] = [];
+// Initialize the mockDB on globalThis if it doesn't exist
+if (!globalThis.__mockDB_TOD) {
+  globalThis.__mockDB_TOD = {
+    turfs: [],
+    slots: [],
+    reviews: [],
+    bookings: [],
+    turfIdCounter: 1,
+    slotIdCounter: 1,
+    reviewIdCounter: 1,
+    bookingIdCounter: 1,
+    initialized: false,
+  };
+}
 
-// Mock data for Reviews - starting empty
-let mockReviewsDB: Review[] = [];
+const mockDB = globalThis.__mockDB_TOD;
 
-// Mock data for Bookings - starting empty
-let mockBookingsDB: Booking[] = [];
-
-// ID Counters
-let mockTurfIdCounter = 1;
-let mockSlotIdCounter = 1;
-let mockReviewIdCounter = 1;
-let mockBookingIdCounter = 1;
+// Initialize data arrays if not already done (e.g., after a full server restart)
+if (!mockDB.initialized || process.env.NODE_ENV !== 'development') {
+  mockDB.turfs = [];
+  mockDB.slots = [];
+  mockDB.reviews = [];
+  mockDB.bookings = [];
+  mockDB.turfIdCounter = 1;
+  mockDB.slotIdCounter = 1;
+  mockDB.reviewIdCounter = 1;
+  mockDB.bookingIdCounter = 1;
+  mockDB.initialized = true;
+  console.log("Mock DB initialized (first time or non-dev environment).");
+}
 
 
 // Turf operations
 export const getTurfs = (): Turf[] => {
-  return mockTurfsDB.map(turf => ({ ...turf, createdAt: new Date(turf.createdAt) }));
+  return mockDB.turfs.map(turf => ({ ...turf, createdAt: new Date(turf.createdAt) }));
 };
 
 export const getVisibleTurfs = (): Turf[] => {
-  return mockTurfsDB.filter(t => t.isVisible).map(turf => ({ ...turf, createdAt: new Date(turf.createdAt) }));
+  return mockDB.turfs.filter(t => t.isVisible).map(turf => ({ ...turf, createdAt: new Date(turf.createdAt) }));
 };
 
 export const getTurfById = (turfId: string): Turf | undefined => {
-  const turf = mockTurfsDB.find(t => t.id === turfId);
+  const turf = mockDB.turfs.find(t => t.id === turfId);
   return turf ? { ...turf, createdAt: new Date(turf.createdAt) } : undefined;
 };
 
 export const getOwnerTurfs = (ownerId: string): Turf[] => {
-  return mockTurfsDB.filter(t => t.ownerId === ownerId).map(turf => ({ ...turf, createdAt: new Date(turf.createdAt) }));
+  return mockDB.turfs.filter(t => t.ownerId === ownerId).map(turf => ({ ...turf, createdAt: new Date(turf.createdAt) }));
 };
 
 export const addTurf = (turfData: Omit<Turf, 'id' | 'createdAt' | 'ownerId' | 'averageRating' | 'reviewCount'>, ownerId: string): Turf => {
   const newTurf: Turf = {
     ...turfData,
-    id: `turf-${mockTurfIdCounter++}`,
+    id: `turf-${mockDB.turfIdCounter++}`,
     ownerId: ownerId,
     createdAt: new Date(),
-    averageRating: 0, // Initial average rating
-    reviewCount: 0,   // Initial review count
+    averageRating: 0,
+    reviewCount: 0,
     ownerPhoneNumber: turfData.ownerPhoneNumber || undefined,
   };
-  mockTurfsDB.push(newTurf);
+  mockDB.turfs.push(newTurf);
   return { ...newTurf };
 };
 
 export const updateTurf = (turfId: string, updates: Partial<Omit<Turf, 'id' | 'ownerId' | 'createdAt'>>): Turf | undefined => {
-  const turfIndex = mockTurfsDB.findIndex(t => t.id === turfId);
+  const turfIndex = mockDB.turfs.findIndex(t => t.id === turfId);
   if (turfIndex === -1) return undefined;
 
-  mockTurfsDB[turfIndex] = { ...mockTurfsDB[turfIndex], ...updates, createdAt: new Date(mockTurfsDB[turfIndex].createdAt) };
-  return { ...mockTurfsDB[turfIndex] };
+  mockDB.turfs[turfIndex] = { ...mockDB.turfs[turfIndex], ...updates, createdAt: new Date(mockDB.turfs[turfIndex].createdAt) };
+  return { ...mockDB.turfs[turfIndex] };
 };
 
 
 // Slot operations
 export const getSlotsForTurf = (turfId: string): Slot[] => {
-    return mockSlotsDB.filter(s => s.turfId === turfId).map(slot => ({...slot, createdAt: new Date(slot.createdAt)}));
+    return mockDB.slots.filter(s => s.turfId === turfId).map(slot => ({...slot, createdAt: new Date(slot.createdAt)}));
 }
 
 export const updateSlotsForTurf = (turfId: string, updatedSlotsData: Slot[]): void => {
-    mockSlotsDB = mockSlotsDB.filter(s => s.turfId !== turfId);
-    mockSlotsDB.push(...updatedSlotsData.map(s => {
+    // Remove old slots for this turf
+    mockDB.slots = mockDB.slots.filter(s => s.turfId !== turfId);
+    // Add updated slots, ensuring persistent IDs for new/default ones
+    mockDB.slots.push(...updatedSlotsData.map(s => {
         const isNewOrTempSlot = s.id.startsWith('new-slot-') || s.id.startsWith('default-slot-');
-        const newId = isNewOrTempSlot ? `slot-${turfId}-${mockSlotIdCounter++}` : s.id;
+        const newId = isNewOrTempSlot ? `slot-${turfId}-${mockDB.slotIdCounter++}` : s.id;
         return {
             ...s,
             id: newId,
-            turfId,
+            turfId, // Ensure turfId is correctly assigned
             createdAt: s.createdAt ? new Date(s.createdAt) : new Date(),
         };
     }));
@@ -83,7 +113,7 @@ export const updateSlotsForTurf = (turfId: string, updatedSlotsData: Slot[]): vo
 
 // Review operations
 export const getReviewsForTurf = (turfId: string): Review[] => {
-    return mockReviewsDB.filter(r => r.turfId === turfId)
+    return mockDB.reviews.filter(r => r.turfId === turfId)
                         .map(review => ({
                             ...review, 
                             createdAt: new Date(review.createdAt),
@@ -95,15 +125,15 @@ export const getReviewsForTurf = (turfId: string): Review[] => {
 export const addReviewForTurf = (turfId: string, reviewData: Omit<Review, 'id' | 'turfId' | 'createdAt' | 'ownerReply' | 'ownerRepliedAt'>): Review => {
     const newReview: Review = {
         ...reviewData,
-        id: `review-${mockReviewIdCounter++}`,
+        id: `review-${mockDB.reviewIdCounter++}`,
         turfId,
         createdAt: new Date(),
     };
-    mockReviewsDB.push(newReview);
+    mockDB.reviews.push(newReview);
 
-    const turf = mockTurfsDB.find(t => t.id === turfId);
+    const turf = mockDB.turfs.find(t => t.id === turfId);
     if (turf) {
-        const reviewsForThisTurf = getReviewsForTurf(turfId);
+        const reviewsForThisTurf = getReviewsForTurf(turfId); // This will use the already filtered and mapped reviews
         const totalRating = reviewsForThisTurf.reduce((sum, r) => sum + r.rating, 0);
         turf.averageRating = reviewsForThisTurf.length > 0 ? parseFloat((totalRating / reviewsForThisTurf.length).toFixed(1)) : 0;
         turf.reviewCount = reviewsForThisTurf.length;
@@ -112,78 +142,75 @@ export const addReviewForTurf = (turfId: string, reviewData: Omit<Review, 'id' |
 }
 
 export const addReplyToReview = (reviewId: string, turfId: string, currentOwnerId: string, replyText: string): Review | undefined => {
-    const reviewIndex = mockReviewsDB.findIndex(r => r.id === reviewId && r.turfId === turfId);
+    const reviewIndex = mockDB.reviews.findIndex(r => r.id === reviewId && r.turfId === turfId);
     if (reviewIndex === -1) return undefined;
 
-    const turf = mockTurfsDB.find(t => t.id === turfId);
+    const turf = mockDB.turfs.find(t => t.id === turfId);
     if (!turf || turf.ownerId !== currentOwnerId) {
         return undefined; 
     }
 
-    mockReviewsDB[reviewIndex].ownerReply = replyText;
-    mockReviewsDB[reviewIndex].ownerRepliedAt = new Date();
+    mockDB.reviews[reviewIndex].ownerReply = replyText;
+    mockDB.reviews[reviewIndex].ownerRepliedAt = new Date();
     
     return { 
-        ...mockReviewsDB[reviewIndex], 
-        createdAt: new Date(mockReviewsDB[reviewIndex].createdAt),
-        ownerRepliedAt: new Date(mockReviewsDB[reviewIndex].ownerRepliedAt!)
+        ...mockDB.reviews[reviewIndex], 
+        createdAt: new Date(mockDB.reviews[reviewIndex].createdAt),
+        ownerRepliedAt: new Date(mockDB.reviews[reviewIndex].ownerRepliedAt!)
     };
 };
 
 
 // Booking operations
 export const getBookingsForPlayer = (playerId: string): Booking[] => {
-    return mockBookingsDB.filter(b => b.playerId === playerId).map(b => ({...b, createdAt: new Date(b.createdAt), bookingDate: b.bookingDate }));
+    return mockDB.bookings.filter(b => b.playerId === playerId).map(b => ({...b, createdAt: new Date(b.createdAt), bookingDate: b.bookingDate }));
 }
 
 export const getBookingsForOwnerTurfs = (ownerTurfIds: string[]): Booking[] => {
-    return mockBookingsDB.filter(b => ownerTurfIds.includes(b.turfId)).map(b => ({...b, createdAt: new Date(b.createdAt), bookingDate: b.bookingDate }));
+    return mockDB.bookings.filter(b => ownerTurfIds.includes(b.turfId)).map(b => ({...b, createdAt: new Date(b.createdAt), bookingDate: b.bookingDate }));
 }
 
 export const updateBooking = (bookingId: string, updates: Partial<Omit<Booking, 'id' | 'createdAt'>>): Booking | undefined => {
-    const bookingIndex = mockBookingsDB.findIndex(b => b.id === bookingId);
+    const bookingIndex = mockDB.bookings.findIndex(b => b.id === bookingId);
     if (bookingIndex === -1) return undefined;
 
-    mockBookingsDB[bookingIndex] = { ...mockBookingsDB[bookingIndex], ...updates, createdAt: new Date(mockBookingsDB[bookingIndex].createdAt) };
-    return { ...mockBookingsDB[bookingIndex] };
+    mockDB.bookings[bookingIndex] = { ...mockDB.bookings[bookingIndex], ...updates, createdAt: new Date(mockDB.bookings[bookingIndex].createdAt) };
+    return { ...mockDB.bookings[bookingIndex] };
 }
 
 export const addBooking = (bookingData: Omit<Booking, 'id' | 'createdAt'>): Booking => {
     const newBookingRequest: Booking = {
         ...bookingData,
-        id: `booking-${mockBookingIdCounter++}`,
+        id: `booking-${mockDB.bookingIdCounter++}`,
         createdAt: new Date(),
     };
     
-
-    let slotIndex = mockSlotsDB.findIndex(s => s.id === newBookingRequest.slotId && s.turfId === newBookingRequest.turfId);
+    let slotToBook = mockDB.slots.find(s => s.id === newBookingRequest.slotId && s.turfId === newBookingRequest.turfId);
     
-    if (slotIndex > -1) { // Slot exists in DB
-        if (mockSlotsDB[slotIndex].status === 'available') {
-            mockSlotsDB[slotIndex].status = 'booked';
-            mockSlotsDB[slotIndex].bookedBy = newBookingRequest.playerId;
+    if (slotToBook) { // Slot exists in DB
+        if (slotToBook.status === 'available') {
+            slotToBook.status = 'booked';
+            slotToBook.bookedBy = newBookingRequest.playerId;
         } else {
-            // This case should ideally be prevented by UI, but good to handle
             throw new Error(`Slot ${newBookingRequest.slotId} is not available.`);
         }
     } else { // Slot was a default generated slot from player view, does not exist in DB yet
-        const persistentSlotId = `slot-${newBookingRequest.turfId}-${mockSlotIdCounter++}`;
+        const persistentSlotId = `slot-${newBookingRequest.turfId}-${mockDB.slotIdCounter++}`;
         const newSlotForDB: Slot = {
             id: persistentSlotId, 
             turfId: newBookingRequest.turfId,
             date: newBookingRequest.bookingDate,
             timeRange: newBookingRequest.timeRange,
-            status: 'booked', // Mark as booked since it's being created due to a booking
+            status: 'booked', 
             bookedBy: newBookingRequest.playerId,
             createdAt: new Date(),
         };
-        mockSlotsDB.push(newSlotForDB);
-        newBookingRequest.slotId = persistentSlotId; // Update booking to use the new persistent slot ID
+        mockDB.slots.push(newSlotForDB);
+        newBookingRequest.slotId = persistentSlotId; 
     }
     
-    mockBookingsDB.push(newBookingRequest);
-    // Return a copy of the booking as it is in the DB (with potentially updated slotId)
-    const finalBooking = mockBookingsDB.find(b => b.id === newBookingRequest.id);
+    mockDB.bookings.push(newBookingRequest);
+    const finalBooking = mockDB.bookings.find(b => b.id === newBookingRequest.id);
     return { ...(finalBooking || newBookingRequest) };
 }
 
@@ -195,21 +222,23 @@ export const getMockPlayerName = (playerId: string) => {
     return `Player ${playerSpecificPart}`;
 };
 
-export const getAllMockTurfs = () => mockTurfsDB;
-export const getAllMockSlots = () => mockSlotsDB;
-export const getAllMockBookings = () => mockBookingsDB;
-export const getAllMockReviews = () => mockReviewsDB;
+export const getAllMockTurfs = () => mockDB.turfs;
+export const getAllMockSlots = () => mockDB.slots;
+export const getAllMockBookings = () => mockDB.bookings;
+export const getAllMockReviews = () => mockDB.reviews;
 
 export const initializeMockData = () => {
-    mockTurfsDB = [];
-    mockSlotsDB = [];
-    mockReviewsDB = [];
-    mockBookingsDB = [];
-    mockTurfIdCounter = 1;
-    mockSlotIdCounter = 1;
-    mockReviewIdCounter = 1;
-    mockBookingIdCounter = 1;
-    console.log("Mock DB re-initialized and wiped clean.");
+    mockDB.turfs = [];
+    mockDB.slots = [];
+    mockDB.reviews = [];
+    mockDB.bookings = [];
+    mockDB.turfIdCounter = 1;
+    mockDB.slotIdCounter = 1;
+    mockDB.reviewIdCounter = 1;
+    mockDB.bookingIdCounter = 1;
+    console.log("Mock DB re-initialized and wiped clean via initializeMockData().");
 };
 
-initializeMockData();
+// DO NOT call initializeMockData() automatically here to allow HMR persistence
+// Call it manually or ensure the globalThis.__mockDB_TOD setup handles initial state.
+// The globalThis setup above ensures it starts empty on a true server restart.
