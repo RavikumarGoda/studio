@@ -3,7 +3,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { UploadCloud, XCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useState, ChangeEvent, useEffect } from "react";
+import { useState, ChangeEvent, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const turfFormSchema = z.object({
@@ -37,7 +37,7 @@ const turfFormSchema = z.object({
   amenities: z.array(z.string()).refine(value => value.some(item => item), {
     message: "You have to select at least one amenity.",
   }),
-  images: z.array(z.string().url("Invalid URL format or mock URL expected.")).min(1, "At least one image is required."),
+  images: z.array(z.string().url("Invalid URL format or mock URL expected.")).min(1, "At least one image is required.").max(5, "Maximum of 5 images allowed."),
   isVisible: z.boolean().default(true),
 });
 
@@ -64,10 +64,8 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   
-  // State for actual File objects, to be uploaded
   const [imageFilesToUpload, setImageFilesToUpload] = useState<File[]>([]);
-  // State for all image previews (blob URLs for new files, existing URLs for old ones)
-  const [imagePreviews, setImagePreviews] = useState<string[]>(initialData?.images || []);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
@@ -85,12 +83,48 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
     },
   });
   
-  useEffect(() => {
-    if (initialData?.images) {
-      form.setValue("images", initialData.images);
-      setImagePreviews(initialData.images);
+  const blobUrlManager = useRef({
+    urls: new Set<string>(),
+    add: (url: string) => {
+      if (url.startsWith('blob:')) blobUrlManager.current.urls.add(url);
+    },
+    remove: (url: string) => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+        blobUrlManager.current.urls.delete(url);
+      }
+    },
+    revokeAll: () => {
+      blobUrlManager.current.urls.forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+      blobUrlManager.current.urls.clear();
     }
-  }, [initialData?.images, form]);
+  });
+
+  useEffect(() => {
+    blobUrlManager.current.revokeAll(); // Clean up previous blob URLs
+
+    const defaultFormValues = {
+      name: initialData?.name || "",
+      location: initialData?.location || "",
+      pricePerHour: initialData?.pricePerHour || 0,
+      description: initialData?.description || "",
+      amenities: initialData?.amenities || [],
+      images: initialData?.images || [],
+      isVisible: initialData?.isVisible === undefined ? true : initialData.isVisible,
+    };
+    
+    form.reset(defaultFormValues); // Reset form with initial or default values
+    setImagePreviews(initialData?.images || []);
+    setImageFilesToUpload([]);
+
+    return () => {
+      blobUrlManager.current.revokeAll(); // Cleanup on component unmount
+    };
+  }, [initialData, form]);
 
 
   const handleImageFilesChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -98,25 +132,34 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
       const filesArray = Array.from(event.target.files);
       if (imagePreviews.length + filesArray.length > 5) {
         toast({ title: "Image Limit", description: "You can upload a maximum of 5 images.", variant: "destructive" });
+        event.target.value = ""; // Clear the file input
         return;
       }
 
       setIsUploadingImages(true);
       
-      const newLocalPreviews = filesArray.map(file => URL.createObjectURL(file));
-      setImagePreviews(prev => [...prev, ...newLocalPreviews]);
-      
-      setImageFilesToUpload(prev => [...prev, ...filesArray]);
+      const newLocalBlobPreviews: string[] = [];
+      const newFilesToUploadAddition: File[] = [];
 
-      const uploadedUrlsPromises = filesArray.map(async (file) => {
-        await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500)); 
-        return `https://placehold.co/600x400.png`; // Generic placeholder URL
+      for (const file of filesArray) {
+        const blobUrl = URL.createObjectURL(file);
+        blobUrlManager.current.add(blobUrl);
+        newLocalBlobPreviews.push(blobUrl);
+        newFilesToUploadAddition.push(file);
+      }
+      
+      setImagePreviews(prev => [...prev, ...newLocalBlobPreviews]);
+      setImageFilesToUpload(prev => [...prev, ...newFilesToUploadAddition]);
+
+      const uploadedPlaceholderUrlsPromises = filesArray.map(async () => {
+        await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 200)); 
+        return `https://placehold.co/600x400.png`;
       });
       
-      const newUploadedUrls = await Promise.all(uploadedUrlsPromises);
+      const newPlaceholderUrls = await Promise.all(uploadedPlaceholderUrlsPromises);
       
-      const currentImageUrls = form.getValues("images");
-      form.setValue("images", [...currentImageUrls, ...newUploadedUrls], { shouldValidate: true });
+      const currentFormImageUrls = form.getValues("images") || [];
+      form.setValue("images", [...currentFormImageUrls, ...newPlaceholderUrls], { shouldValidate: true, shouldDirty: true });
       
       event.target.value = ""; 
       setIsUploadingImages(false);
@@ -124,60 +167,38 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
   };
 
   const removeImage = (indexToRemove: number) => {
-    const removedPreview = imagePreviews[indexToRemove];
+    const removedPreviewUrl = imagePreviews[indexToRemove];
+
     setImagePreviews(prev => prev.filter((_, i) => i !== indexToRemove));
 
-    const currentUrls = form.getValues("images");
-    let updatedUrls;
-
-    if (removedPreview.startsWith('blob:')) {
-      // If it's a blob, it means it was a new file. We remove a corresponding
-      // generic placeholder URL from the form values. This assumes new placeholders
-      // were appended and order is maintained.
-      // This simple removal by index from `currentUrls` works if `imagePreviews` and `currentUrls`
-      // (for the newly added items) maintain their relative order.
-      updatedUrls = currentUrls.filter((_, i) => {
-        // This logic is tricky: we need to map the preview index to the URL index.
-        // Let's assume that if the removed preview was a blob, it corresponds to one of the
-        // *later* entries in `currentUrls` that is a generic placeholder.
-        // A more robust mock would track exact mappings, but for now, we remove by index.
-        // The original logic of removing by index from `currentUrls` is kept,
-        // as it's the simplest for this mock scenario.
-        return i !== indexToRemove; // This might not be perfectly accurate if initialData also had generic placeholders.
-      });
-      // A safer approach for blobs if order is exact:
-      // Count how many blob previews are *before* this one. Remove that many non-blob urls from the start of `currentUrls`,
-      // then remove the `n-th` generic placeholder. But let's stick to simpler index removal for now.
-      const nonBlobPreviewsCount = imagePreviews.filter(p => !p.startsWith('blob:')).length;
-      const blobIndexAmongBlobs = imagePreviews.slice(0, indexToRemove).filter(p => p.startsWith('blob:')).length;
+    if (removedPreviewUrl.startsWith('blob:')) {
+      blobUrlManager.current.remove(removedPreviewUrl);
       
-      if (indexToRemove >= nonBlobPreviewsCount) { // It's a blob URL that was removed
-         // Find the corresponding generic URL to remove
-         // This assumes generic URLs from blobs are appended after existing URLs.
-         const urlIndexToRemoveInForm = nonBlobPreviewsCount + blobIndexAmongBlobs;
-         if (urlIndexToRemoveInForm < currentUrls.length) {
-            updatedUrls = currentUrls.filter((_, i) => i !== urlIndexToRemoveInForm);
-         } else {
-            updatedUrls = [...currentUrls]; // Should not happen if logic is correct
-         }
-      } else { // It's an existing HTTP URL that was removed
-         updatedUrls = currentUrls.filter(url => url !== removedPreview);
+      // Remove the corresponding file from imageFilesToUpload
+      // This relies on the order of blob URLs in imagePreviews matching imageFilesToUpload
+      let blobIndexTally = 0;
+      let fileToRemoveAtIndex = -1;
+      for(let i = 0; i < imagePreviews.length; i++) {
+        if(imagePreviews[i].startsWith('blob:')) {
+          if(i === indexToRemove) {
+            fileToRemoveAtIndex = blobIndexTally;
+            break;
+          }
+          blobIndexTally++;
+        }
       }
-
-    } else { 
-      // It's an existing HTTP URL (from initialData or previously "uploaded")
-      updatedUrls = currentUrls.filter(url => url !== removedPreview);
+      if(fileToRemoveAtIndex !== -1) {
+        setImageFilesToUpload(prevFiles => prevFiles.filter((_, i) => i !== fileToRemoveAtIndex));
+      }
     }
-    form.setValue("images", updatedUrls, { shouldValidate: true });
-    
-    // Optionally, also remove from imageFilesToUpload if the removedPreview was a blob
-    // This requires mapping blob URLs back to files, which is complex if files are not stored with their blob URLs.
-    // For this mock, we'll primarily focus on updating `imagePreviews` and `form.getValues("images")`.
-    if (removedPreview.startsWith('blob:')) {
-        // Find the corresponding file in imageFilesToUpload and remove it.
-        // This requires a more robust mapping than is currently implemented.
-        // For now, we'll skip precise removal from imageFilesToUpload to avoid complexity,
-        // as it's mainly for the "upload" simulation.
+
+    // Update form's "images" array
+    // The URL at `indexToRemove` in `imagePreviews` (before filtering) corresponds to the URL
+    // at `indexToRemove` in the form's `images` array.
+    const currentFormImageUrls = form.getValues("images");
+    if (indexToRemove < currentFormImageUrls.length) {
+        const updatedFormImageUrls = currentFormImageUrls.filter((_, i) => i !== indexToRemove);
+        form.setValue("images", updatedFormImageUrls, { shouldValidate: true, shouldDirty: true });
     }
   };
 
@@ -190,6 +211,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
     setIsSubmittingForm(true);
     try {
       await onSubmitForm(data);
+      // blobUrlManager.current.revokeAll(); // Moved to useEffect cleanup
     } catch (error) {
       toast({
         title: "Error",
@@ -246,7 +268,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                     <FormItem>
                     <FormLabel>Price Per Hour (₹)</FormLabel>
                     <FormControl>
-                        <Input type="number" placeholder="E.g., 1000" {...field} disabled={isSubmittingForm || isUploadingImages}/>
+                        <Input type="number" placeholder="E.g., 1000" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} disabled={isSubmittingForm || isUploadingImages}/>
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -331,7 +353,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                             type="file"
                             id="file-upload"
                             multiple
-                            accept="image/*"
+                            accept="image/jpeg,image/png,image/webp"
                             onChange={handleImageFilesChange}
                             className="hidden"
                             disabled={isSubmittingForm || isUploadingImages || imagePreviews.length >= 5}
@@ -359,11 +381,11 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                           </Label>
                         </div>
                       </FormControl>
-                      <FormDescription>Upload 1-5 images of your turf. First image is primary.</FormDescription>
+                      <FormDescription>Upload 1-5 images of your turf. First image is primary. Accepted: JPG, PNG, WebP.</FormDescription>
                       {imagePreviews.length > 0 && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
                           {imagePreviews.map((previewUrl, index) => (
-                            <div key={previewUrl || index} className="relative group">
+                            <div key={`${previewUrl}-${index}`} className="relative group"> {/* Ensure unique key */}
                               <Image
                                 src={previewUrl}
                                 alt={`Preview ${index + 1}`}
@@ -419,7 +441,7 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
                     <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmittingForm || isUploadingImages}>
                         Cancel
                     </Button>
-                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmittingForm || isUploadingImages || form.getValues("images").length === 0}>
+                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmittingForm || isUploadingImages || form.getValues("images")?.length === 0}>
                         {(isSubmittingForm || isUploadingImages) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {initialData?.id ? "Save Changes" : "Add Turf"}
                     </Button>
@@ -430,4 +452,3 @@ export function TurfForm({ initialData, onSubmitForm }: TurfFormProps) {
     </Card>
   );
 }
-
