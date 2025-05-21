@@ -60,7 +60,7 @@ function generateDefaultSlots(date: string, turfId: string): Slot[] {
 
     for (let i = startHour; i <= endLoopHour; i++) {
         const startTime = formatHourForTimeRange(i);
-        const endTime = formatHourForTimeRange(i + 1); // For i=23, i+1=24, which formatHourForTimeRange handles as 12:00 AM
+        const endTime = formatHourForTimeRange(i + 1); 
         const timeRange = `${startTime} - ${endTime}`;
         defaults.push({
             id: `default-slot-${date}-${i}-${Math.random().toString(16).slice(2)}`, // Temporary ID
@@ -74,6 +74,24 @@ function generateDefaultSlots(date: string, turfId: string): Slot[] {
     return defaults;
 }
 
+// Helper to convert time range string to sortable minutes from midnight
+function timeRangeToMinutes(timeRange: string): number {
+  const startTimeStr = timeRange.split(' - ')[0]; // e.g., "07:00 AM"
+  const [timePart, modifier] = startTimeStr.split(' '); // e.g., ["07:00", "AM"]
+  let [hours, minutes] = timePart.split(':').map(Number); // e.g., [7, 0]
+
+  if (modifier.toUpperCase() === 'AM') {
+    if (hours === 12) { // 12 AM (midnight start of day)
+      hours = 0;
+    }
+  } else if (modifier.toUpperCase() === 'PM') {
+    if (hours !== 12) { // 12 PM (noon) is 12, 1 PM is 13, etc.
+      hours += 12;
+    }
+  }
+  return hours * 60 + minutes;
+}
+
 
 export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerProps) {
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -85,25 +103,28 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   const { toast } = useToast();
 
   useEffect(() => {
-    const dbSlotsForSelectedDate = initialSlots.filter(slot => slot.date === selectedDate);
-
-    if (dbSlotsForSelectedDate.length > 0) {
-      setSlots([...initialSlots].sort((a,b) => {
+    // Start with all initial slots
+    let processedSlots = [...initialSlots];
+    
+    // Check if the selectedDate specifically needs default generation
+    const selectedDateHasInitialSlots = initialSlots.some(slot => slot.date === selectedDate);
+    
+    if (!selectedDateHasInitialSlots) {
+        const defaultGeneratedSlots = generateDefaultSlots(selectedDate, turf.id);
+        // Add default slots only if no initial slots exist for this specific date
+        processedSlots = [...processedSlots, ...defaultGeneratedSlots];
+    }
+    
+    // Sort all processed slots: first by date, then by time
+    processedSlots.sort((a, b) => {
         const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
         if (dateComparison !== 0) return dateComparison;
-        return a.timeRange.localeCompare(b.timeRange);
-      }));
-    } else {
-      const defaultSlotsForDate = generateDefaultSlots(selectedDate, turf.id);
-      const slotsFromOtherDates = initialSlots.filter(slot => slot.date !== selectedDate);
-      
-      setSlots([...slotsFromOtherDates, ...defaultSlotsForDate].sort((a,b) => {
-         const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-        if (dateComparison !== 0) return dateComparison;
-        return a.timeRange.localeCompare(b.timeRange);
-      }));
-    }
+        return timeRangeToMinutes(a.timeRange) - timeRangeToMinutes(b.timeRange);
+    });
+    
+    setSlots(processedSlots);
   }, [initialSlots, selectedDate, turf.id]);
+
 
   const handleDateChange = (e: ChangeEvent<HTMLInputElement>) => {
     setSelectedDate(e.target.value);
@@ -114,6 +135,12 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
         toast({title: "Missing Information", description: "Please select a date and time range.", variant: "destructive"});
         return;
     }
+    // Check for duplicate slot time on the same date
+    if (slots.some(slot => slot.date === selectedDate && slot.timeRange === newSlotTimeRange)) {
+        toast({title: "Duplicate Slot", description: "This time range already exists for the selected date.", variant: "destructive"});
+        return;
+    }
+
     const newSlot: Slot = {
       id: `new-slot-${Date.now()}`, 
       turfId: turf.id,
@@ -122,7 +149,11 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
       status: newSlotStatus,
       createdAt: new Date(),
     };
-    const updatedSlots = [...slots, newSlot].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.timeRange.localeCompare(b.timeRange));
+    const updatedSlots = [...slots, newSlot].sort((a,b) => {
+        const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+        if (dateComparison !== 0) return dateComparison;
+        return timeRangeToMinutes(a.timeRange) - timeRangeToMinutes(b.timeRange);
+    });
     setSlots(updatedSlots);
     toast({title: "Slot Added (Locally)", description: "Remember to save changes."});
   };
@@ -149,7 +180,10 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   const handleSaveChanges = async () => {
     setIsSubmitting(true);
     try {
-      await onSlotsUpdate(slots); 
+      // Filter out only slots that belong to the current turf before saving
+      // This prevents accidentally trying to save/modify slots from other turfs if `initialSlots` contained them
+      const slotsToSave = slots.filter(slot => slot.turfId === turf.id);
+      await onSlotsUpdate(slotsToSave); 
     } catch (error) {
         toast({title: "Error Saving Slots", description: "An unexpected error occurred.", variant: "destructive"})
     } finally {
@@ -158,7 +192,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   };
   
   const slotsForSelectedDate = slots.filter(slot => slot.date === selectedDate)
-    .sort((a,b) => a.timeRange.localeCompare(b.timeRange));
+    .sort((a,b) => timeRangeToMinutes(a.timeRange) - timeRangeToMinutes(b.timeRange));
 
   return (
     <Card className="shadow-xl">
