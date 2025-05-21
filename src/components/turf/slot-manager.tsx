@@ -61,7 +61,7 @@ function generateDefaultSlots(date: string, turfId: string): Slot[] {
 
     for (let i = startHour; i <= endLoopHour; i++) {
         const startTime = formatHourForTimeRange(i);
-        const endTime = formatHourForTimeRange(i + 1); 
+        const endTime = formatHourForTimeRange(i + 1);
         const timeRange = `${startTime} - ${endTime}`;
         defaults.push({
             id: `default-slot-${date}-${i}-${Math.random().toString(16).slice(2)}`, // Temporary ID
@@ -106,18 +106,18 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   useEffect(() => {
     let processedSlots = [...initialSlots];
     const selectedDateHasInitialSlots = initialSlots.some(slot => slot.date === selectedDate);
-    
+
     if (!selectedDateHasInitialSlots) {
         const defaultGeneratedSlots = generateDefaultSlots(selectedDate, turf.id);
         processedSlots = [...processedSlots, ...defaultGeneratedSlots];
     }
-    
+
     processedSlots.sort((a, b) => {
         const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
         if (dateComparison !== 0) return dateComparison;
         return timeRangeToMinutes(a.timeRange) - timeRangeToMinutes(b.timeRange);
     });
-    
+
     setSlots(processedSlots);
   }, [initialSlots, selectedDate, turf.id]);
 
@@ -137,7 +137,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
     }
 
     const newSlot: Slot = {
-      id: `new-slot-${Date.now()}`, 
+      id: `new-slot-${Date.now()}-${mockSlotIdCounter++}`, // Ensure unique temporary ID
       turfId: turf.id,
       date: selectedDate,
       timeRange: newSlotTimeRange,
@@ -154,7 +154,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   };
   
   const toggleSlotStatus = (slotId: string) => {
-    setSlots(prevSlots => 
+    setSlots(prevSlots =>
       prevSlots.map(slot => {
         if (slot.id === slotId) {
           if (slot.status === 'available') {
@@ -162,6 +162,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
           } else if (slot.status === 'maintenance') {
             return { ...slot, status: 'available' };
           }
+          // Booked slots are not toggled here
         }
         return slot;
       })
@@ -185,8 +186,10 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
   const handleSaveChanges = async () => {
     setIsSubmitting(true);
     try {
+      // Filter out only slots belonging to the current turf before saving.
+      // This is important if `initialSlots` could contain slots from other turfs (though unlikely in this setup).
       const slotsToSave = slots.filter(slot => slot.turfId === turf.id);
-      await onSlotsUpdate(slotsToSave); 
+      await onSlotsUpdate(slotsToSave);
     } catch (error) {
         toast({title: "Error Saving Slots", description: "An unexpected error occurred.", variant: "destructive"})
     } finally {
@@ -219,12 +222,16 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
     }
   }
 
+  // Counter for new slot IDs to ensure uniqueness before saving
+  let mockSlotIdCounter = 1;
+
+
   return (
     <Card className="shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl">Manage Slots for {turf.name}</CardTitle>
         <CardDescription>
-          Select a date to view and manage slots. Click on an available or maintenance slot to toggle its status. 
+          Select a date to view and manage slots. Click on an available or maintenance slot to toggle its status.
           Booked slots cannot be changed here. Default slots from 7 AM to 12 AM (midnight) are generated if none exist for a day.
           Make sure to save your changes.
         </CardDescription>
@@ -274,7 +281,7 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
                   onClick={() => slot.status !== 'booked' && toggleSlotStatus(slot.id)}
                   disabled={slot.status === 'booked'}
                   className={cn(
-                    "p-3 border rounded-lg shadow-sm transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring",
+                    "p-3 border rounded-lg shadow-sm transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring relative", // Added relative for positioning context
                     getSlotCardClasses(slot.status),
                     slot.status !== 'booked' ? 'cursor-pointer' : 'cursor-not-allowed'
                   )}
@@ -287,9 +294,9 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
                   {slot.status === 'booked' && slot.bookedBy && (
                     <p className="text-xs text-center mt-1 opacity-80">(By ...{slot.bookedBy.slice(-4)})</p>
                   )}
-                   <Button 
-                        variant="ghost" 
-                        size="icon" 
+                   <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={(e) => { e.stopPropagation(); setSlotToDelete(slot);}} // Stop propagation to prevent card click
                         disabled={slot.status === 'booked'}
                         className={cn(
@@ -327,8 +334,8 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setSlotToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-                onClick={confirmDeleteSlot} 
+            <AlertDialogAction
+                onClick={confirmDeleteSlot}
                 disabled={slotToDelete?.status === 'booked'}
                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             >
@@ -341,3 +348,4 @@ export function SlotManager({ turf, initialSlots, onSlotsUpdate }: SlotManagerPr
     </Card>
   );
 }
+
