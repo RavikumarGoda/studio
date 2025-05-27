@@ -18,28 +18,28 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { LogOut, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useEffect } from "react";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
   // Redirect if not authenticated or wrong role for path
   useEffect(() => {
     if (!loading && !user) {
-      // Temporary disable redirect for development if needed.
-      // router.push('/login'); 
+      router.push('/login'); 
     } else if (user) {
       if (pathname.startsWith('/owner') && user.role !== 'owner') {
-        // router.push('/player/dashboard');
+        router.push('/player/dashboard');
       } else if (pathname.startsWith('/player') && user.role !== 'player') {
-        // router.push('/owner/dashboard');
+        router.push('/owner/dashboard');
       }
     }
-  }, [user, loading, pathname]);
+  }, [user, loading, pathname, router]);
 
 
   if (loading) {
