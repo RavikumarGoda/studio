@@ -25,7 +25,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { UploadCloud, XCircle, Loader2, Phone } from "lucide-react";
-import NextImage from "next/image"; 
+import NextImage from "next/image";
 import React, { useState, ChangeEvent, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +37,7 @@ const turfFormSchema = z.object({
     .refine(val => !val || /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/.test(val), {
         message: "Invalid phone number format.",
     })
-    .or(z.literal('')), 
+    .or(z.literal('')),
   pricePerHour: z.coerce.number().min(0, "Price must be a positive number."),
   description: z.string().min(10, "Description must be at least 10 characters.").max(1000, "Description too long."),
   amenities: z.array(z.string()).refine(value => value.some(item => item), {
@@ -62,34 +62,38 @@ const allAmenitiesList = [
 
 
 interface TurfFormProps {
-  initialData?: Partial<Turf>; 
+  initialData?: Partial<Turf>;
   onSubmitForm: (data: TurfFormValues) => Promise<void>;
 }
 
 function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
   const router = useRouter();
   const { toast } = useToast();
-  
+
+  const [imagePreviews, setImagePreviews] = useState<string[]>(initialData?.images || []);
   const [imageFilesToUpload, setImageFilesToUpload] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]); 
-  
+
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [isProcessingImages, setIsProcessingImages] = useState(false);
 
+  const [isInitialLoadForTurf, setIsInitialLoadForTurf] = useState(true);
+  const prevInitialDataIdRef = useRef(initialData?.id);
+
+
   const form = useForm<TurfFormValues>({
     resolver: zodResolver(turfFormSchema),
-    defaultValues: { // Initialize all fields to ensure they are controlled
-      name: "",
-      location: "",
-      ownerPhoneNumber: "", // Ensure this is an empty string, not undefined
-      pricePerHour: 0,
-      description: "",
-      amenities: [],
-      images: [],
-      isVisible: true,
+    defaultValues: {
+      name: initialData?.name || "",
+      location: initialData?.location || "",
+      ownerPhoneNumber: initialData?.ownerPhoneNumber || "",
+      pricePerHour: initialData?.pricePerHour || 0,
+      description: initialData?.description || "",
+      amenities: initialData?.amenities || [],
+      images: initialData?.images || [],
+      isVisible: initialData?.isVisible === undefined ? true : initialData.isVisible,
     },
   });
-  
+
   const blobUrlManager = useRef({
     urls: new Set<string>(),
     add: (url: string) => {
@@ -112,30 +116,44 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
   });
 
   useEffect(() => {
-    // This effect now primarily handles populating the form when `initialData` is provided (for editing)
-    // or ensuring it's reset to "new form" state if `initialData` becomes undefined.
-    blobUrlManager.current.revokeAll();
-
-    const defaultFormValuesFromInitialData = {
-      name: initialData?.name || "",
-      location: initialData?.location || "",
-      ownerPhoneNumber: initialData?.ownerPhoneNumber || "", // Will be "" if initialData.ownerPhoneNumber is undefined
-      pricePerHour: initialData?.pricePerHour || 0,
-      description: initialData?.description || "",
-      amenities: initialData?.amenities || [],
-      images: initialData?.images || [], 
-      isVisible: initialData?.isVisible === undefined ? true : initialData.isVisible,
-    };
-    
-    form.reset(defaultFormValuesFromInitialData); 
-    
-    setImagePreviews(initialData?.images || []); 
-    setImageFilesToUpload([]); 
-
+    // This effect runs only on component unmount to clean up any active blob URLs
     return () => {
-      blobUrlManager.current.revokeAll(); 
+      blobUrlManager.current.revokeAll();
     };
-  }, [initialData]); // Removed form from dependencies
+  }, []);
+
+
+  useEffect(() => {
+    const currentTurfIdInProp = initialData?.id;
+
+    if (currentTurfIdInProp !== prevInitialDataIdRef.current) {
+      // This means we are switching to a different turf, or from new to edit, or edit to new.
+      // So, it's considered an "initial load" for the new context.
+      setIsInitialLoadForTurf(true);
+      prevInitialDataIdRef.current = currentTurfIdInProp;
+    }
+
+    if (isInitialLoadForTurf) {
+      blobUrlManager.current.revokeAll(); // Clean up blobs from any *previous* turf context
+
+      const defaultFormValues = {
+        name: initialData?.name || "",
+        location: initialData?.location || "",
+        ownerPhoneNumber: initialData?.ownerPhoneNumber || "",
+        pricePerHour: initialData?.pricePerHour || 0,
+        description: initialData?.description || "",
+        amenities: initialData?.amenities || [],
+        images: initialData?.images || [],
+        isVisible: initialData?.isVisible === undefined ? true : initialData.isVisible,
+      };
+
+      form.reset(defaultFormValues);
+      setImagePreviews(initialData?.images || []); // Initialize previews with existing/DB URLs
+      setImageFilesToUpload([]); // Clear any stale file objects from a previous context
+
+      setIsInitialLoadForTurf(false); // Mark that the initial load for *this* turf context is done
+    }
+  }, [initialData, form, isInitialLoadForTurf]); // form.reset dependency implicitly covered by `form`
 
 
   const handleImageFilesChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -145,60 +163,78 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
 
       if (currentTotalImages > 5) {
         toast({ title: "Image Limit", description: "You can upload a maximum of 5 images.", variant: "destructive" });
-        event.target.value = ""; 
+        event.target.value = "";
         return;
       }
 
       setIsProcessingImages(true);
-      
+
       const newLocalBlobPreviews: string[] = [];
       const newFilesToUploadAddition: File[] = [];
 
       for (const file of filesArray) {
         const blobUrl = URL.createObjectURL(file);
-        blobUrlManager.current.add(blobUrl);
+        blobUrlManager.current.add(blobUrl); // Track the new blob URL
         newLocalBlobPreviews.push(blobUrl);
         newFilesToUploadAddition.push(file);
       }
-      
+
       setImagePreviews(prev => [...prev, ...newLocalBlobPreviews]);
       setImageFilesToUpload(prev => [...prev, ...newFilesToUploadAddition]);
 
+      // Simulate upload and get placeholder URLs for form data
       const uploadedPlaceholderUrlsPromises = filesArray.map(async () => {
-        await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 100)); 
-        return `https://placehold.co/600x400.png`; 
+        await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 100));
+        return `https://placehold.co/600x400.png`;
       });
-      
+
       const newPlaceholderUrls = await Promise.all(uploadedPlaceholderUrlsPromises);
-      
+
       const currentFormImageUrls = form.getValues("images") || [];
       form.setValue("images", [...currentFormImageUrls, ...newPlaceholderUrls], { shouldValidate: true, shouldDirty: true });
-      
-      event.target.value = ""; 
+
+      event.target.value = "";
       setIsProcessingImages(false);
     }
   };
 
   const removeImage = (indexToRemove: number) => {
     const removedPreviewUrl = imagePreviews[indexToRemove];
-  
-    setImagePreviews(prev => prev.filter((_, i) => i !== indexToRemove));
-    
+
+    // Update imagePreviews state (for UI)
+    const newImagePreviews = imagePreviews.filter((_, i) => i !== indexToRemove);
+    setImagePreviews(newImagePreviews);
+
+    // Update react-hook-form's "images" field (for submission data)
     const currentFormImages = form.getValues("images") || [];
-    form.setValue("images", currentFormImages.filter((_, i) => i !== indexToRemove), { shouldValidate: true, shouldDirty: true });
-  
+    const newFormImages = currentFormImages.filter((_, i) => i !== indexToRemove);
+    form.setValue("images", newFormImages, { shouldValidate: true, shouldDirty: true });
+
+    // If the removed image was a newly uploaded blob, revoke its URL and remove from files to upload
     if (removedPreviewUrl.startsWith('blob:')) {
       blobUrlManager.current.remove(removedPreviewUrl);
-      // Smartly find the corresponding File object to remove if it's a blob
-      // This needs to map the index in imagePreviews to the index in imageFilesToUpload
-      // (since imageFilesToUpload only contains new files, not existing http ones)
-      let blobUrlCountBeforeIndex = 0;
-      for (let i = 0; i < indexToRemove; i++) {
+
+      // Find the corresponding File object in imageFilesToUpload to remove
+      // This assumes imageFilesToUpload contains files in the same order as their blob previews appear
+      // after existing http/https images in imagePreviews.
+      let blobUrlCountSoFar = 0;
+      let fileIndexToRemove = -1;
+
+      for(let i=0; i < imagePreviews.length; i++) {
+        if (i === indexToRemove && imagePreviews[i].startsWith('blob:')) {
+            fileIndexToRemove = blobUrlCountSoFar;
+            break;
+        }
         if (imagePreviews[i].startsWith('blob:')) {
-          blobUrlCountBeforeIndex++;
+            blobUrlCountSoFar++;
         }
       }
-      setImageFilesToUpload(prev => prev.filter((_, i) => i !== blobUrlCountBeforeIndex));
+      if (fileIndexToRemove !== -1) {
+        setImageFilesToUpload(prevFiles => prevFiles.filter((_, i) => i !== fileIndexToRemove));
+      } else {
+        // This case might happen if the blob URL was already removed or logic error.
+        console.warn("Could not find corresponding file in imageFilesToUpload for removed blob preview:", removedPreviewUrl);
+      }
     }
   };
 
@@ -224,8 +260,8 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
       setIsSubmittingForm(false);
     }
   }
-  
-  const hasImages = imagePreviews.length > 0;
+
+  const hasAnyImages = imagePreviews.length > 0;
 
   return (
     <Card className="shadow-xl">
@@ -274,12 +310,12 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
                       <FormControl>
                         <div className="relative">
                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                           <Input 
-                             type="tel" 
-                             placeholder="E.g., +919876543210" 
-                             {...field} 
+                           <Input
+                             type="tel"
+                             placeholder="E.g., +919876543210"
+                             {...field}
                              className="pl-10"
-                             disabled={isSubmittingForm || isProcessingImages} 
+                             disabled={isSubmittingForm || isProcessingImages}
                            />
                         </div>
                       </FormControl>
@@ -368,11 +404,11 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
                     </FormItem>
                 )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="images"
-                  render={({ field }) => ( 
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Turf Images</FormLabel>
                       <FormControl>
@@ -386,7 +422,7 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
                             className="hidden"
                             disabled={isSubmittingForm || isProcessingImages || imagePreviews.length >= 5}
                           />
-                           <Label 
+                           <Label
                             htmlFor="file-upload"
                             className={cn(
                                 "flex items-center justify-center w-full h-32 px-4 transition bg-background border-2 border-dashed rounded-md appearance-none cursor-pointer hover:border-primary focus:outline-none",
@@ -420,7 +456,7 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
                                 fill
                                 className="rounded-md object-cover"
                                 data-ai-hint="facility photo"
-                                unoptimized={previewUrl.startsWith('blob:')} 
+                                unoptimized={previewUrl.startsWith('blob:')}
                               />
                               <Button
                                 type="button"
@@ -468,10 +504,10 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
                     <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmittingForm || isProcessingImages} className="w-full sm:w-auto">
                         Cancel
                     </Button>
-                    <Button 
-                        type="submit" 
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto btn-primary-action" 
-                        disabled={isSubmittingForm || isProcessingImages || !hasImages}
+                    <Button
+                        type="submit"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto btn-primary-action"
+                        disabled={isSubmittingForm || isProcessingImages || !hasAnyImages}
                     >
                         {(isSubmittingForm || isProcessingImages) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {initialData?.id ? "Save Changes" : "Add Turf"}
