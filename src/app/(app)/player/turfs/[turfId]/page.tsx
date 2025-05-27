@@ -282,7 +282,7 @@ export default function TurfDetailPage() {
             height={500}
             className="w-full h-auto max-h-[300px] sm:max-h-[400px] md:max-h-[500px] object-cover rounded-lg shadow-md"
             data-ai-hint="sports field large"
-            unoptimized={selectedImage?.startsWith('blob:') || selectedImage?.startsWith('data:')}
+            unoptimized={selectedImage?.startsWith('data:')}
           />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-1 gap-2">
@@ -295,7 +295,7 @@ export default function TurfDetailPage() {
                 height={125}
                 className={`w-full h-full object-cover rounded-md cursor-pointer transition-opacity ${selectedImage === imgUrl ? 'opacity-100 ring-2 ring-primary' : 'opacity-75 hover:opacity-100'}`}
                 data-ai-hint="turf detail"
-                unoptimized={imgUrl.startsWith('blob:') || imgUrl.startsWith('data:')}
+                unoptimized={imgUrl.startsWith('data:')}
               />
             </button>
           ))}

@@ -26,6 +26,7 @@ export function OwnerTurfCard({ turf, onVisibilityToggle }: OwnerTurfCardProps) 
           height={400}
           className="w-full h-48 object-cover"
           data-ai-hint="soccer pitch grass"
+          unoptimized={turf.images[0]?.startsWith('data:')}
         />
       </CardHeader>
       <CardContent className="p-4 flex-grow">

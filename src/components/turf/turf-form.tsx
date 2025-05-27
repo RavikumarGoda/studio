@@ -69,13 +69,10 @@ interface TurfFormProps {
 function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
   const router = useRouter();
   const { toast } = useToast();
-
-  // imagePreviews: URLs for display in the form (can be http, new blob, or existing data URIs from initialData)
+  
+  // imagePreviews will store Data URIs for new images, or HTTP URLs for existing ones.
+  // This state will be kept in sync with the form's "images" field.
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  // Stores the File objects for newly added images, used to generate Data URIs upon submission
-  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
-
-
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [isProcessingImages, setIsProcessingImages] = useState(false);
   
@@ -85,43 +82,26 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
   const form = useForm<TurfFormValues>({
     resolver: zodResolver(turfFormSchema),
     defaultValues: {
-      name: "",
-      location: "",
-      ownerPhoneNumber: "",
-      pricePerHour: 0,
-      description: "",
-      amenities: [],
-      images: [], // This will hold http OR data URIs for SAVED images
-      isVisible: true,
+      name: initialData?.name || "",
+      location: initialData?.location || "",
+      ownerPhoneNumber: initialData?.ownerPhoneNumber || "",
+      pricePerHour: initialData?.pricePerHour || 0,
+      description: initialData?.description || "",
+      amenities: initialData?.amenities || [],
+      images: initialData?.images || [],
+      isVisible: initialData?.isVisible === undefined ? true : initialData.isVisible,
     },
   });
   
-  const blobUrlManager = useRef<{blobUrl: string, fileIndex: number}[]>([]);
-
-  const revokeBlobUrls = useCallback(() => {
-    blobUrlManager.current.forEach(item => URL.revokeObjectURL(item.blobUrl));
-    blobUrlManager.current = [];
-  }, []);
-
   useEffect(() => {
-    // This effect runs only on component unmount to clean up any active blob URLs
-    return () => {
-      revokeBlobUrls();
-    };
-  }, [revokeBlobUrls]);
-
-
-  useEffect(() => {
+    // This effect handles re-initialization if the turf being edited changes
     const currentTurfIdInProp = initialData?.id;
     if (currentTurfIdInProp !== prevInitialDataIdRef.current) {
-      setIsInitialLoadForTurf(true);
+      setIsInitialLoadForTurf(true); // Mark for re-initialization
       prevInitialDataIdRef.current = currentTurfIdInProp;
     }
 
     if (isInitialLoadForTurf) {
-      revokeBlobUrls(); // Clean up blobs from any previous turf context
-      setNewImageFiles([]); // Clear new files
-
       const defaultFormValues = {
         name: initialData?.name || "",
         location: initialData?.location || "",
@@ -129,99 +109,62 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
         pricePerHour: initialData?.pricePerHour || 0,
         description: initialData?.description || "",
         amenities: initialData?.amenities || [],
-        images: initialData?.images || [], // These are actual URLs or Data URIs from DB
+        images: initialData?.images || [],
         isVisible: initialData?.isVisible === undefined ? true : initialData.isVisible,
       };
       form.reset(defaultFormValues);
-      // imagePreviews should show what's in initialData.images
       setImagePreviews(initialData?.images || []);
       setIsInitialLoadForTurf(false); 
     }
-  }, [initialData, form, isInitialLoadForTurf, revokeBlobUrls]);
+  }, [initialData, form, isInitialLoadForTurf]);
 
 
   const handleImageFilesChange = async (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
-      
-      const totalExistingAndNew = imagePreviews.length + filesArray.length;
-      if (totalExistingAndNew > 5) {
+      const currentImages = form.getValues("images") || [];
+
+      if (currentImages.length + filesArray.length > 5) {
         toast({ title: "Image Limit", description: "You can upload a maximum of 5 images.", variant: "destructive" });
-        event.target.value = "";
+        event.target.value = ""; // Clear the file input
         return;
       }
 
       setIsProcessingImages(true);
-      const currentNewFileCount = newImageFiles.length;
+      const newDataUris: string[] = [];
 
-      const newBlobPreviewUrls: string[] = [];
-      const newlyAddedFiles: File[] = [];
-
-      for (let i = 0; i < filesArray.length; i++) {
-        const file = filesArray[i];
-        const blobUrl = URL.createObjectURL(file);
-        // Track blob URL with an index relative to newImageFiles array for later removal
-        blobUrlManager.current.push({ blobUrl, fileIndex: currentNewFileCount + i });
-        newBlobPreviewUrls.push(blobUrl);
-        newlyAddedFiles.push(file);
+      for (const file of filesArray) {
+        try {
+          const dataUri = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          newDataUris.push(dataUri);
+        } catch (error) {
+          console.error("Error converting file to Data URI:", error);
+          toast({ title: "Image Error", description: `Could not process image ${file.name}.`, variant: "destructive" });
+        }
       }
       
-      setImagePreviews(prev => [...prev, ...newBlobPreviewUrls]);
-      setNewImageFiles(prev => [...prev, ...newlyAddedFiles]);
+      if (newDataUris.length > 0) {
+        const updatedImages = [...currentImages, ...newDataUris];
+        setImagePreviews(updatedImages); // Update UI previews
+        form.setValue("images", updatedImages, { shouldValidate: true, shouldDirty: true }); // Update form state
+      }
       
-      // No need to update form.setValue("images",...) here yet with placeholders or blobs.
-      // Data URIs will be generated and put into form state just before submission.
-      
-      event.target.value = ""; 
+      event.target.value = ""; // Clear file input after processing
       setIsProcessingImages(false);
     }
   };
 
-  const removeImage = (indexToRemoveInPreview: number) => {
-    const removedPreviewUrl = imagePreviews[indexToRemoveInPreview];
-
-    if (removedPreviewUrl.startsWith('blob:')) {
-      // Find the corresponding blob item to get its original fileIndex in newImageFiles
-      const blobItemIndex = blobUrlManager.current.findIndex(item => item.blobUrl === removedPreviewUrl);
-      if (blobItemIndex !== -1) {
-        const originalFileIndex = blobUrlManager.current[blobItemIndex].fileIndex;
-        // Remove from newImageFiles using this originalFileIndex
-        setNewImageFiles(prevFiles => prevFiles.filter((_, idx) => idx !== originalFileIndex));
-        // Remove from blobUrlManager and revoke
-        URL.revokeObjectURL(removedPreviewUrl);
-        blobUrlManager.current.splice(blobItemIndex, 1);
-        // Adjust fileIndex for subsequent blob items
-         blobUrlManager.current.forEach(item => {
-            if (item.fileIndex > originalFileIndex) {
-                item.fileIndex--;
-            }
-        });
-      }
-    } else {
-      // It's an existing image (http or data URI) from initialData, remove it from form.images
-      const currentFormImages = form.getValues("images") || [];
-      // This removal assumes that initialData.images (http/data) are at the start of imagePreviews
-      // and their relative order is maintained.
-      let countNonBlobBefore = 0;
-      for(let i=0; i < indexToRemoveInPreview; i++){
-        if(!imagePreviews[i].startsWith('blob:')) countNonBlobBefore++;
-      }
-      if(countNonBlobBefore < currentFormImages.length && currentFormImages[countNonBlobBefore] === removedPreviewUrl){
-         const newFormImages = currentFormImages.filter((_, i) => i !== countNonBlobBefore);
-         form.setValue("images", newFormImages, { shouldValidate: true, shouldDirty: true });
-      } else {
-        // Fallback: try to find by value if index logic is complex
-        const idxInForm = currentFormImages.indexOf(removedPreviewUrl);
-        if (idxInForm !== -1) {
-            const newFormImages = currentFormImages.filter((_, i) => i !== idxInForm);
-            form.setValue("images", newFormImages, { shouldValidate: true, shouldDirty: true });
-        } else {
-             console.warn("Could not find image to remove in form state:", removedPreviewUrl);
-        }
-      }
-    }
-    // Update imagePreviews UI state
-    setImagePreviews(prev => prev.filter((_, i) => i !== indexToRemoveInPreview));
+  const removeImage = (indexToRemove: number) => {
+    const currentImages = form.getValues("images") || [];
+    const updatedImages = currentImages.filter((_, i) => i !== indexToRemove);
+    
+    setImagePreviews(updatedImages); // Update UI previews
+    form.setValue("images", updatedImages, { shouldValidate: true, shouldDirty: true }); // Update form state
   };
 
 
@@ -231,34 +174,9 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
         return;
     }
     setIsSubmittingForm(true);
-
-    // Prepare final images for submission: existing images + Data URIs for new files
-    const finalImages: string[] = [...(form.getValues("images") || [])]; // Start with existing images
-
-    for (const file of newImageFiles) {
-      try {
-        const dataUri = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        finalImages.push(dataUri);
-      } catch (error) {
-        console.error("Error converting file to Data URI:", error);
-        toast({title: "Image Error", description: `Could not process image ${file.name}.`, variant: "destructive"});
-        setIsSubmittingForm(false);
-        return;
-      }
-    }
-    
-    const submissionData = { ...data, images: finalImages };
-
+    // data.images now directly comes from the form state, which should be up-to-date
     try {
-      await onSubmitForm(submissionData);
-      // After successful submission, blobs for newly added images are no longer needed for preview in this form instance
-      revokeBlobUrls(); 
-      setNewImageFiles([]);
+      await onSubmitForm(data);
     } catch (error) {
       toast({
         title: "Error",
@@ -270,7 +188,7 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
     }
   }
   
-  const hasAnyImages = imagePreviews.length > 0;
+  const hasAnyImages = (form.watch("images") || []).length > 0;
 
 
   return (
@@ -430,13 +348,13 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
                             accept="image/jpeg,image/png,image/webp"
                             onChange={handleImageFilesChange}
                             className="hidden"
-                            disabled={isSubmittingForm || isProcessingImages || imagePreviews.length >= 5}
+                            disabled={isSubmittingForm || isProcessingImages || (form.getValues("images") || []).length >= 5}
                           />
                            <Label
                             htmlFor="file-upload"
                             className={cn(
                                 "flex items-center justify-center w-full h-32 px-4 transition bg-background border-2 border-dashed rounded-md appearance-none cursor-pointer hover:border-primary focus:outline-none",
-                                (isSubmittingForm || isProcessingImages || imagePreviews.length >= 5) && "cursor-not-allowed opacity-50"
+                                (isSubmittingForm || isProcessingImages || (form.getValues("images") || []).length >= 5) && "cursor-not-allowed opacity-50"
                             )}
                           >
                             {isProcessingImages ? (
@@ -448,7 +366,7 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
                                 <span className="flex items-center space-x-2">
                                 <UploadCloud className="w-6 h-6 text-muted-foreground" />
                                 <span className="font-medium text-muted-foreground">
-                                    {imagePreviews.length >= 5 ? "Maximum 5 images" : "Click to upload (Max 5)"}
+                                    {(form.getValues("images") || []).length >= 5 ? "Maximum 5 images" : "Click to upload (Max 5)"}
                                 </span>
                                 </span>
                             )}
@@ -456,17 +374,17 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
                         </div>
                       </FormControl>
                       <FormDescription>Upload 1-5 images of your turf. First image is primary. Accepted: JPG, PNG, WebP.</FormDescription>
-                      {imagePreviews.length > 0 && (
+                      {imagePreviews.length > 0 && ( // Use imagePreviews for rendering
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
                           {imagePreviews.map((previewUrl, index) => ( 
                             <div key={`${previewUrl.slice(0,30)}-${index}`} className="relative group aspect-[3/2]">
                               <NextImage
-                                src={previewUrl}
+                                src={previewUrl} // This is now always a URL or Data URI
                                 alt={`Preview ${index + 1}`}
                                 fill
                                 className="rounded-md object-cover"
                                 data-ai-hint="facility photo"
-                                unoptimized={previewUrl.startsWith('blob:') || previewUrl.startsWith('data:')}
+                                unoptimized={previewUrl.startsWith('data:')} // Unoptimize only for Data URIs
                               />
                               <Button
                                 type="button"
