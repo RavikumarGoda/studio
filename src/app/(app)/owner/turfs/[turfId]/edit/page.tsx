@@ -2,7 +2,7 @@
 // src/app/(app)/owner/turfs/[turfId]/edit/page.tsx
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react'; // Added useCallback
 import { useParams, useRouter } from 'next/navigation';
 import { TurfForm, type TurfFormValues } from '@/components/turf/turf-form';
 import type { Turf } from '@/types';
@@ -25,7 +25,6 @@ export default function EditTurfPage() {
       setIsLoading(true);
       const data = fetchTurfById(turfId);
       if (data) {
-        // Ensure images is always an array, even if empty from DB
         setTurfData({ ...data, images: data.images || [] });
       } else {
         toast({ title: "Error", description: "Turf not found.", variant: "destructive" });
@@ -35,7 +34,7 @@ export default function EditTurfPage() {
     }
   }, [turfId, router, toast]);
 
-  const handleSubmit = async (data: TurfFormValues) => {
+  const handleSubmit = useCallback(async (data: TurfFormValues) => {
     if (!user || user.role !== 'owner' || turfData?.ownerId !== user.uid) {
       toast({ title: "Error", description: "You are not authorized to edit this turf.", variant: "destructive" });
       return;
@@ -46,11 +45,8 @@ export default function EditTurfPage() {
     }
 
     try {
-      // The 'data' from TurfFormValues is compatible with the 'updates' expected by updateTurfInDB
-      // It already excludes id, ownerId, createdAt
       updateTurfInDB(turfId, data);
       
-      // Simulate a slight delay for user feedback
       await new Promise(resolve => setTimeout(resolve, 300));
 
       toast({
@@ -62,7 +58,7 @@ export default function EditTurfPage() {
         console.error("Error updating turf:", error);
         toast({ title: "Error", description: "Failed to update turf. Please try again.", variant: "destructive"});
     }
-  };
+  }, [user, turfData, turfId, router, toast]); // Dependencies for useCallback
 
   if (isLoading || authLoading) {
     return (
@@ -93,3 +89,5 @@ export default function EditTurfPage() {
     </div>
   );
 }
+
+    

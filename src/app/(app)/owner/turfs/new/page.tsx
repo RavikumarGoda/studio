@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { addTurf as addTurfToDB, getOwnerTurfs as fetchOwnerTurfsFromDB } from '@/lib/mock-db';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // Added useCallback
 import { Loader2 } from 'lucide-react';
 
 export default function NewTurfPage() {
@@ -43,13 +43,12 @@ export default function NewTurfPage() {
     // If auth is still loading, isLoadingPage remains true
   }, [user, authLoading, router, toast]);
 
-  const handleSubmit = async (data: TurfFormValues) => {
+  const handleSubmit = useCallback(async (data: TurfFormValues) => {
     if (!user || user.role !== 'owner') {
       toast({ title: "Error", description: "You are not authorized to add turfs.", variant: "destructive" });
       return;
     }
     
-    // Double check limit before submission, though UI should prevent this path
     const ownerTurfs = fetchOwnerTurfsFromDB(user.uid);
     if (ownerTurfs.length >= 1) {
         toast({ title: "Limit Reached", description: "Cannot add another turf.", variant: "destructive"});
@@ -89,7 +88,7 @@ export default function NewTurfPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [user, router, toast]); // Dependencies for useCallback
 
   if (authLoading || isLoadingPage) {
     return (
@@ -106,3 +105,5 @@ export default function NewTurfPage() {
     </div>
   );
 }
+
+    
