@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,6 +9,7 @@ body {
 
 @layer base {
   :root {
+    /* Default Light Theme - Remains largely unchanged or slightly adjusted for consistency */
     --background: 125 47% 94%; /* #E8F5E9 Light Green */
     --foreground: 120 10% 25%; /* Dark Greenish Grey for text */
 
@@ -16,9 +18,11 @@ body {
 
     --popover: 0 0% 100%; 
     --popover-foreground: 120 10% 25%;
+    --popover-hsl: 0 0% 100%; /* For glassmorphism */
 
     --card: 0 0% 100%;
     --card-foreground: 120 10% 25%;
+    --card-hsl: 0 0% 100%; /* For glassmorphism */
 
     --border: 125 20% 80%; 
     --input: 125 20% 85%; 
@@ -44,7 +48,7 @@ body {
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
 
-    /* Sidebar specific theme */
+    /* Sidebar specific theme (Light) */
     --sidebar-background: 125 47% 92%;
     --sidebar-foreground: 120 10% 25%;
     --sidebar-primary: 122 39% 57%;
@@ -56,41 +60,110 @@ body {
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 122 39% 57%; 
-    --primary-foreground: 125 47% 98%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 36 100% 56%; 
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 122 39% 57%;
-    
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    /* Electric Future Theme (Applied via .dark class) */
+    --background-hsl: 230 30% 12%; /* Deep, dark blue */
+    --background: var(--background-hsl);
+    --foreground-hsl: 220 25% 90%; /* Bright silver/off-white */
+    --foreground: var(--foreground-hsl);
 
-    /* Sidebar specific theme */
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 122 39% 57%;
-    --sidebar-primary-foreground: 125 47% 98%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 122 39% 57%;
+    --muted-hsl: 230 20% 25%;
+    --muted: var(--muted-hsl);
+    --muted-foreground-hsl: 220 15% 65%;
+    --muted-foreground: var(--muted-foreground-hsl);
+    
+    /* Glassmorphic Popovers/Cards */
+    --popover-hsl: 240 30% 15%; /* Base color for glass */
+    --popover: hsla(var(--popover-hsl), 0.65); /* Semi-transparent */
+    --popover-foreground: var(--foreground-hsl);
+
+    --card-hsl: 240 30% 15%; /* Base color for glass */
+    --card: hsla(var(--card-hsl), 0.55); /* Semi-transparent */
+    --card-foreground: var(--foreground-hsl);
+
+    --border-hsl: 220 70% 50%; /* Electric blue for some borders */
+    --border: hsla(var(--border-hsl), 0.5);
+    --input-border-hsl: 220 40% 40%;
+    --input: hsla(var(--input-border-hsl), 0.3); /* Semi-transparent input bg */
+    
+    --primary-hsl: 220 90% 60%; /* Electric Blue */
+    --primary: var(--primary-hsl);
+    --primary-foreground-hsl: 220 20% 95%; /* Bright White/Light Blue */
+    --primary-foreground: var(--primary-foreground-hsl);
+
+    --secondary-hsl: 210 15% 75%; /* Metallic Silver (grey tone) */
+    --secondary: var(--secondary-hsl);
+    --secondary-foreground-hsl: 230 30% 12%; /* Dark Blue, for contrast on silver buttons */
+    --secondary-foreground: var(--secondary-foreground-hsl);
+
+    --accent-hsl: 275 90% 65%; /* Neon Purple */
+    --accent: var(--accent-hsl);
+    --accent-foreground-hsl: 0 0% 100%; /* Pure White */
+    --accent-foreground: var(--accent-foreground-hsl);
+
+    --destructive-hsl: 0 70% 55%; /* Vivid Red */
+    --destructive: var(--destructive-hsl);
+    --destructive-foreground-hsl: 0 0% 100%;
+    --destructive-foreground: var(--destructive-foreground-hsl);
+
+    --ring-hsl: 220 90% 70%; /* Brighter Electric Blue for rings */
+    --ring: var(--ring-hsl);
+    
+    --chart-1: var(--primary-hsl);
+    --chart-2: var(--accent-hsl);
+    --chart-3: 200 80% 60%; /* Cyan */
+    --chart-4: 300 80% 60%; /* Magenta */
+    --chart-5: 150 80% 60%; /* Teal */
+
+    /* Sidebar specific theme (Electric Future) */
+    --sidebar-background-hsl: 235 30% 10%;
+    --sidebar-background: hsla(var(--sidebar-background-hsl), 0.7);
+    --sidebar-foreground: var(--foreground-hsl);
+    --sidebar-primary: var(--primary-hsl);
+    --sidebar-primary-foreground: var(--primary-foreground-hsl);
+    --sidebar-accent-hsl: 275 80% 55%; /* Slightly darker Neon Purple for sidebar accents */
+    --sidebar-accent: var(--sidebar-accent-hsl);
+    --sidebar-accent-foreground: var(--accent-foreground-hsl);
+    --sidebar-border: hsla(var(--border-hsl), 0.3);
+    --sidebar-ring: var(--ring-hsl);
+  }
+
+  .thunder-mode {
+    /* Ultra-Dark Thunder Mode - Overrides .dark or can be used standalone */
+    --background-hsl: 240 40% 5%; /* Even deeper, almost black blue/purple */
+    --background: var(--background-hsl);
+    --foreground-hsl: 220 30% 95%; /* Very bright silver */
+    --foreground: var(--foreground-hsl);
+
+    --muted-hsl: 240 25% 15%;
+    --muted: var(--muted-hsl);
+    --muted-foreground-hsl: 220 20% 70%;
+    --muted-foreground: var(--muted-foreground-hsl);
+    
+    --popover-hsl: 250 40% 8%;
+    --popover: hsla(var(--popover-hsl), 0.7);
+    --popover-foreground: var(--foreground-hsl);
+
+    --card-hsl: 250 40% 8%;
+    --card: hsla(var(--card-hsl), 0.6);
+    --card-foreground: var(--foreground-hsl);
+
+    --border-hsl: 220 80% 60%; /* Brighter Electric Blue for borders in thunder mode */
+    --border: hsla(var(--border-hsl), 0.6);
+    --input-border-hsl: 220 50% 50%;
+    --input: hsla(var(--input-border-hsl), 0.2);
+    
+    --primary-hsl: 215 95% 65%; /* Slightly brighter Electric Blue */
+    --primary: var(--primary-hsl);
+    --primary-foreground-hsl: 0 0% 100%; 
+    --primary-foreground: var(--primary-foreground-hsl);
+
+    --accent-hsl: 270 95% 70%; /* Brighter Neon Purple */
+    --accent: var(--accent-hsl);
+
+    /* Sidebar specific theme (Thunder Mode) */
+    --sidebar-background-hsl: 240 40% 4%;
+    --sidebar-background: hsla(var(--sidebar-background-hsl), 0.75);
+    --sidebar-border: hsla(var(--border-hsl), 0.4);
   }
 }
 
@@ -99,6 +172,132 @@ body {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground transition-colors duration-300 ease-in-out;
+  }
+
+  /* Add glassmorphism to cards and popovers when .dark or .thunder-mode is active */
+  .dark .card, .dark .popover, .dark dialog, .dark [role='dialog'], .dark [data-radix-dialog-content], .dark [data-radix-sheet-content],
+  .thunder-mode .card, .thunder-mode .popover, .thunder-mode dialog, .thunder-mode [role='dialog'], .thunder-mode [data-radix-dialog-content], .thunder-mode [data-radix-sheet-content] {
+    @apply backdrop-blur-md shadow-xl;
+    border-color: hsla(var(--border-hsl), 0.3); /* Ensure border is also slightly transparent */
+  }
+  
+  .dark .sidebar, .thunder-mode .sidebar { /* Assuming sidebar has a class or data attribute */
+      @apply backdrop-blur-lg;
+  }
+  
+  /* Apply to specific ShadCN components if needed */
+  .dark .dialog-content, .thunder-mode .dialog-content { /* Example for ShadCN DialogContent */
+      background-color: hsla(var(--card-hsl), 0.55) !important; /* Overriding ShadCN */
+      @apply backdrop-blur-md shadow-xl;
+      border-color: hsla(var(--border-hsl), 0.3);
+  }
+   .dark .sheet-content, .thunder-mode .sheet-content { /* Example for ShadCN SheetContent */
+      background-color: hsla(var(--card-hsl), 0.55) !important; /* Overriding ShadCN */
+      @apply backdrop-blur-md shadow-xl;
+      border-color: hsla(var(--border-hsl), 0.3);
+  }
+
+
+  /* Typography enhancements for .dark and .thunder-mode */
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6,
+  .thunder-mode h1, .thunder-mode h2, .thunder-mode h3, .thunder-mode h4, .thunder-mode h5, .thunder-mode h6 {
+    text-shadow: 0 0 6px hsla(var(--primary-hsl), 0.5), 0 0 12px hsla(var(--primary-hsl), 0.3);
+  }
+  .dark .button-primary, .thunder-mode .button-primary { /* Assuming a class for primary buttons */
+    @apply animate-electric-pulse;
+  }
+  .dark .icon-interactive:hover, .thunder-mode .icon-interactive:hover { /* Assuming a class for interactive icons */
+    @apply animate-electric-flicker;
+  }
+
+  /* Tab specific styling for .dark and .thunder-mode */
+  .dark [data-state=active][role=tab], 
+  .thunder-mode [data-state=active][role=tab] {
+    position: relative;
+    overflow: hidden; /* To contain the pseudo-element */
+  }
+
+  .dark [data-state=active][role=tab]::after,
+  .thunder-mode [data-state=active][role=tab]::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
+    animation: tab-trail 0.5s ease-out forwards;
   }
 }
+
+/* Keyframes for animations (global or to be imported into tailwind.config) */
+@keyframes electric-pulse {
+  0%, 100% { box-shadow: 0 0 5px 0px hsla(var(--primary-hsl), 0.7), 0 0 10px 0px hsla(var(--primary-hsl), 0.5); }
+  50% { box-shadow: 0 0 15px 5px hsla(var(--primary-hsl), 0.9), 0 0 25px 5px hsla(var(--primary-hsl), 0.7); }
+}
+
+@keyframes electric-flicker {
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px hsl(var(--primary-hsl))); }
+  25% { opacity: 0.8; filter: drop-shadow(0 0 4px hsl(var(--primary-hsl)));}
+  50% { opacity: 1; filter: drop-shadow(0 0 2px hsl(var(--primary-hsl)));}
+  75% { opacity: 0.7; filter: drop-shadow(0 0 5px hsl(var(--primary-hsl)));}
+}
+
+@keyframes border-flash-anim {
+  0% { border-color: hsla(var(--primary-hsl), 0.5); }
+  50% { border-color: hsla(var(--accent-hsl), 0.8); }
+  100% { border-color: hsla(var(--primary-hsl), 0.5); }
+}
+
+@keyframes text-glow-anim {
+  0%, 100% { text-shadow: 0 0 5px hsla(var(--foreground-hsl), 0.7), 0 0 8px hsla(var(--primary-hsl), 0.3); }
+  50% { text-shadow: 0 0 10px hsla(var(--foreground-hsl), 0.9), 0 0 15px hsla(var(--primary-hsl), 0.5); }
+}
+
+@keyframes tab-trail {
+  from {
+    left: -100%;
+    width: 0%;
+    opacity: 0;
+  }
+  to {
+    left: 0;
+    width: 100%;
+    opacity: 1;
+  }
+}
+
+/* Apply backdrop blur for ShadCN dialog/sheet content more reliably */
+/* This might need specific classes from ShadCN if the generic ones don't catch */
+.dark [data-radix-dialog-content], .dark [data-radix-alert-dialog-content], .dark [data-radix-popover-content], .dark [data-radix-sheet-content],
+.thunder-mode [data-radix-dialog-content], .thunder-mode [data-radix-alert-dialog-content], .thunder-mode [data-radix-popover-content], .thunder-mode [data-radix-sheet-content] {
+  background-color: hsla(var(--card-hsl), 0.6) !important; /* Adjust alpha for desired transparency */
+  @apply backdrop-blur-lg shadow-2xl; /* Increased shadow for depth */
+  border: 1px solid hsla(var(--border-hsl), 0.4);
+}
+
+.dark .DialogOverlay, .dark .SheetOverlay, .dark .AlertDialogOverlay,
+.thunder-mode .DialogOverlay, .thunder-mode .SheetOverlay, .thunder-mode .AlertDialogOverlay {
+  background-color: hsla(var(--background-hsl), 0.5) !important; /* Darker, more thematic overlay */
+  @apply backdrop-blur-sm;
+}
+
+/* Ensuring buttons in dark mode have the desired effects */
+.dark .btn-primary-action, .thunder-mode .btn-primary-action { /* Assign this class to main action buttons */
+  animation: electric-pulse 1.5s infinite ease-in-out;
+  box-shadow: 0 0 8px hsla(var(--primary-hsl), 0.5), 0 0 15px hsla(var(--primary-hsl), 0.3);
+  transition: all 0.3s ease;
+}
+.dark .btn-primary-action:hover, .thunder-mode .btn-primary-action:hover {
+  box-shadow: 0 0 12px hsla(var(--primary-hsl), 0.8), 0 0 25px hsla(var(--primary-hsl), 0.6);
+  transform: translateY(-1px);
+}
+
+/* Styling for specific hover effects */
+.dark .interactive-border-flash:hover, .thunder-mode .interactive-border-flash:hover {
+  animation: border-flash-anim 0.3s linear;
+}
+
+
+    
