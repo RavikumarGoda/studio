@@ -25,7 +25,6 @@ const getInitials = (name: string = "User") => {
 export default function ManageTurfReviewsPage() {
   const params = useParams();
   const router = useRouter();
-  const turfId = params.turfId as string;
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
@@ -35,14 +34,22 @@ export default function ManageTurfReviewsPage() {
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
   const [submittingReplyFor, setSubmittingReplyFor] = useState<string | null>(null);
 
+  const [resolvedTurfId, setResolvedTurfId] = useState<string | null>(null);
+
   useEffect(() => {
-    if (turfId) {
+    if (params?.turfId && typeof params.turfId === 'string') {
+      setResolvedTurfId(params.turfId);
+    }
+  }, [params?.turfId]);
+
+  useEffect(() => {
+    if (resolvedTurfId) {
       setIsLoading(true);
       try {
-        const currentTurf = fetchTurfById(turfId);
+        const currentTurf = fetchTurfById(resolvedTurfId);
         if (currentTurf) {
           setTurf(currentTurf);
-          const turfReviews = fetchReviewsForTurf(turfId);
+          const turfReviews = fetchReviewsForTurf(resolvedTurfId);
           setReviews(turfReviews);
         } else {
           toast({ title: "Error", description: "Turf not found.", variant: "destructive" });
@@ -55,14 +62,14 @@ export default function ManageTurfReviewsPage() {
         setIsLoading(false);
       }
     }
-  }, [turfId, router, toast]);
+  }, [resolvedTurfId, router, toast]);
 
   const handleReplyInputChange = (reviewId: string, value: string) => {
     setReplyInputs(prev => ({ ...prev, [reviewId]: value }));
   };
 
   const handleSubmitReply = async (reviewId: string) => {
-    if (!user || !turf || turf.ownerId !== user.uid) {
+    if (!user || !turf || turf.ownerId !== user.uid || !resolvedTurfId) {
       toast({ title: "Unauthorized", description: "You are not authorized to reply to reviews for this turf.", variant: "destructive" });
       return;
     }
@@ -74,10 +81,10 @@ export default function ManageTurfReviewsPage() {
 
     setSubmittingReplyFor(reviewId);
     try {
-      const updatedReview = addReplyToReviewInDB(reviewId, turf.id, user.uid, replyText.trim());
+      const updatedReview = addReplyToReviewInDB(reviewId, resolvedTurfId, user.uid, replyText.trim());
       if (updatedReview) {
         setReviews(prevReviews => prevReviews.map(r => r.id === reviewId ? updatedReview : r));
-        setReplyInputs(prev => ({ ...prev, [reviewId]: '' })); // Clear input
+        setReplyInputs(prev => ({ ...prev, [reviewId]: '' })); 
         toast({ title: "Reply Submitted", description: "Your reply has been posted." });
       } else {
         toast({ title: "Error", description: "Failed to submit reply. Please try again.", variant: "destructive" });
@@ -89,6 +96,15 @@ export default function ManageTurfReviewsPage() {
       setSubmittingReplyFor(null);
     }
   };
+
+  if (!resolvedTurfId && !authLoading) {
+     return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Loading turf identifier...</p>
+      </div>
+    );
+  }
 
   if (isLoading || authLoading) {
     return (

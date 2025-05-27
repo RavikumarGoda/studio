@@ -15,19 +15,26 @@ import { getTurfById as fetchTurfById, getSlotsForTurf as fetchSlotsForTurf, upd
 export default function ManageSlotsPage() {
   const params = useParams();
   const router = useRouter();
-  const turfId = params.turfId as string;
   const { user, loading: authLoading } = useAuth();
   const [turf, setTurf] = useState<Turf | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
+  const [resolvedTurfId, setResolvedTurfId] = useState<string | null>(null);
+
   useEffect(() => {
-    if (turfId) {
+    if (params?.turfId && typeof params.turfId === 'string') {
+      setResolvedTurfId(params.turfId);
+    }
+  }, [params?.turfId]);
+
+  useEffect(() => {
+    if (resolvedTurfId) {
       setIsLoading(true);
       try {
-        const turfData = fetchTurfById(turfId);
-        const slotsData = fetchSlotsForTurf(turfId);
+        const turfData = fetchTurfById(resolvedTurfId);
+        const slotsData = fetchSlotsForTurf(resolvedTurfId);
         
         if (turfData) {
           setTurf(turfData);
@@ -43,24 +50,23 @@ export default function ManageSlotsPage() {
         setIsLoading(false);
       }
     }
-  }, [turfId, router, toast]);
+  }, [resolvedTurfId, router, toast]);
 
   const handleSlotsUpdate = async (updatedSlots: Slot[]) => {
     if (!user || user.role !== 'owner' || turf?.ownerId !== user.uid) {
       toast({ title: "Error", description: "You are not authorized to update slots for this turf.", variant: "destructive" });
       return;
     }
-    if (!turfId) {
+    if (!resolvedTurfId) {
         toast({ title: "Error", description: "Turf ID is missing for slot update.", variant: "destructive"});
         return;
     }
     
     try {
-      updateSlotsInDB(turfId, updatedSlots);
-      // Simulate a slight delay for user feedback
+      updateSlotsInDB(resolvedTurfId, updatedSlots);
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      setSlots(fetchSlotsForTurf(turfId)); // Re-fetch to ensure consistency if IDs changed or for confirmation
+      setSlots(fetchSlotsForTurf(resolvedTurfId)); 
 
       toast({
         title: "Slots Updated Successfully!",
@@ -71,6 +77,15 @@ export default function ManageSlotsPage() {
         toast({ title: "Error", description: "Failed to update slots. Please try again.", variant: "destructive"});
     }
   };
+
+  if (!resolvedTurfId && !authLoading) {
+     return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Loading turf identifier...</p>
+      </div>
+    );
+  }
 
   if (isLoading || authLoading) {
     return (

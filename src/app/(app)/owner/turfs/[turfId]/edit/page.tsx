@@ -2,7 +2,7 @@
 // src/app/(app)/owner/turfs/[turfId]/edit/page.tsx
 "use client";
 
-import { useEffect, useState, useCallback } from 'react'; // Added useCallback
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { TurfForm, type TurfFormValues } from '@/components/turf/turf-form';
 import type { Turf } from '@/types';
@@ -14,16 +14,23 @@ import { getTurfById as fetchTurfById, updateTurf as updateTurfInDB } from '@/li
 export default function EditTurfPage() {
   const params = useParams();
   const router = useRouter();
-  const turfId = params.turfId as string;
   const { user, loading: authLoading } = useAuth();
   const [turfData, setTurfData] = useState<Turf | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
+  const [resolvedTurfId, setResolvedTurfId] = useState<string | null>(null);
+
   useEffect(() => {
-    if (turfId) {
+    if (params?.turfId && typeof params.turfId === 'string') {
+      setResolvedTurfId(params.turfId);
+    }
+  }, [params?.turfId]);
+
+  useEffect(() => {
+    if (resolvedTurfId) {
       setIsLoading(true);
-      const data = fetchTurfById(turfId);
+      const data = fetchTurfById(resolvedTurfId);
       if (data) {
         setTurfData({ ...data, images: data.images || [] });
       } else {
@@ -32,20 +39,20 @@ export default function EditTurfPage() {
       }
       setIsLoading(false);
     }
-  }, [turfId, router, toast]);
+  }, [resolvedTurfId, router, toast]);
 
   const handleSubmit = useCallback(async (data: TurfFormValues) => {
     if (!user || user.role !== 'owner' || turfData?.ownerId !== user.uid) {
       toast({ title: "Error", description: "You are not authorized to edit this turf.", variant: "destructive" });
       return;
     }
-    if (!turfId) {
+    if (!resolvedTurfId) {
         toast({ title: "Error", description: "Turf ID is missing.", variant: "destructive" });
         return;
     }
 
     try {
-      updateTurfInDB(turfId, data);
+      updateTurfInDB(resolvedTurfId, data);
       
       await new Promise(resolve => setTimeout(resolve, 300));
 
@@ -58,7 +65,16 @@ export default function EditTurfPage() {
         console.error("Error updating turf:", error);
         toast({ title: "Error", description: "Failed to update turf. Please try again.", variant: "destructive"});
     }
-  }, [user, turfData, turfId, router, toast]); // Dependencies for useCallback
+  }, [user, turfData, resolvedTurfId, router, toast]);
+
+  if (!resolvedTurfId && !authLoading) {
+     return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Loading turf identifier...</p>
+      </div>
+    );
+  }
 
   if (isLoading || authLoading) {
     return (
@@ -70,7 +86,8 @@ export default function EditTurfPage() {
   }
 
   if (!turfData) {
-    return <p>Turf not found. You will be redirected.</p>;
+    // This case should ideally be handled by the redirect in the useEffect if turf not found
+    return <p>Turf not found. You may be redirected.</p>;
   }
 
   if (!user || user.role !== 'owner' || turfData.ownerId !== user.uid) {
@@ -89,5 +106,3 @@ export default function EditTurfPage() {
     </div>
   );
 }
-
-    
