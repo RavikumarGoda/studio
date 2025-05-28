@@ -147,8 +147,7 @@ function TurfFormComponent({ initialData, onSubmitForm }: TurfFormProps) {
           toast({ title: "Image Error", description: `Could not process image ${file.name}.`, variant: "destructive" });
         }
       }
-      
-      if (newDataUris.length > 0) {
+          if (newDataUris.length > 0) {
         const updatedImages = [...currentImages, ...newDataUris];
         setImagePreviews(updatedImages); // Update UI previews
         form.setValue("images", updatedImages, { shouldValidate: true, shouldDirty: true }); // Update form state
